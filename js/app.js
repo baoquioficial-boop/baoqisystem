@@ -85,7 +85,7 @@ function gp(page,el) {
 function om(id) {
   document.getElementById('m-'+id).classList.add('op');
   if(id==='cobrar') poblarSelectCobro();
-  if(id==='ncita') { document.getElementById('nc-fecha').value=hoy(); poblarSelectDoctor(); }
+  if(id==='ncita') { document.getElementById('nc-fecha').value=agendaFecha||hoy(); poblarSelectDoctor(); }
 }
 function cm(id) { document.getElementById('m-'+id).classList.remove('op'); }
 function sm(el) { el.closest('.met-g').querySelectorAll('.met').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
@@ -305,24 +305,72 @@ function generarTicket(c) {
     <div class="tk-f">Gracias por su preferencia · NOM-004-SSA3-2012</div>`;
 }
 
-/* ============ AGENDA ============ */
+/* ============ AGENDA — navegación por días ============ */
+let agendaFecha = hoy(); // fecha actualmente visible en agenda
+
+function agendaCambiarDia(dias) {
+  const d = new Date(agendaFecha + 'T12:00:00');
+  d.setDate(d.getDate() + dias);
+  agendaFecha = d.toISOString().slice(0, 10);
+  renderAgenda();
+}
+
+function agendaIrHoy() {
+  agendaFecha = hoy();
+  renderAgenda();
+}
+
+function fmtFechaAgenda(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  const h = hoy();
+  const manana = new Date(); manana.setDate(manana.getDate() + 1);
+  const mananaISO = manana.toISOString().slice(0, 10);
+  const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+  const ayerISO = ayer.toISOString().slice(0, 10);
+  const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  if (iso === h) return 'Hoy — ' + dias[d.getDay()] + ' ' + d.getDate() + ' ' + meses[d.getMonth()];
+  if (iso === mananaISO) return 'Mañana — ' + dias[d.getDay()] + ' ' + d.getDate() + ' ' + meses[d.getMonth()];
+  if (iso === ayerISO) return 'Ayer — ' + dias[d.getDay()] + ' ' + d.getDate() + ' ' + meses[d.getMonth()];
+  return dias[d.getDay()] + ' ' + d.getDate() + ' de ' + meses[d.getMonth()] + ' ' + d.getFullYear();
+}
+
 function renderAgenda() {
-  const h=hoy();
-  const citasH=CITAS.filter(c=>c.fecha===h).sort((a,b)=>a.hora>b.hora?1:-1);
-  document.getElementById('ag-porllevar').textContent=citasH.filter(c=>c.estado==='Pendiente').length;
-  document.getElementById('ag-consulta').textContent=citasH.filter(c=>c.estado==='Llegó').length;
-  document.getElementById('ag-cobrar').textContent=fmtM(citasH.filter(c=>c.estado==='Atendida').length*400);
-  document.getElementById('ag-term').textContent=citasH.filter(c=>c.estado==='Atendida'||c.estado==='Pagado').length;
+  const fecha = agendaFecha;
+  const esHoy = fecha === hoy();
+  const citasF = CITAS.filter(c=>c.fecha===fecha).sort((a,b)=>a.hora>b.hora?1:-1);
 
-  const wrap=document.getElementById('agenda-lista');
-  if(!citasH.length){wrap.innerHTML='<div class="empty"><i class="ti ti-calendar-off"></i>Sin citas para hoy</div>';return;}
+  // Actualizar navegación de fecha
+  const navEl = document.getElementById('agenda-nav');
+  if (navEl) {
+    navEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="agendaCambiarDia(-1)"><i class="ti ti-chevron-left"></i></button>
+        <span style="font-size:13px;font-weight:500;color:var(--text);flex:1;text-align:center;min-width:160px">${fmtFechaAgenda(fecha)}</span>
+        <button class="btn btn-sm" onclick="agendaCambiarDia(1)"><i class="ti ti-chevron-right"></i></button>
+        ${!esHoy ? `<button class="btn btn-sm btn-g" onclick="agendaIrHoy()"><i class="ti ti-calendar-event"></i> Hoy</button>` : ''}
+        <input type="date" class="fi" value="${fecha}" onchange="agendaFecha=this.value;renderAgenda()" style="width:auto;font-size:12px;padding:5px 8px">
+      </div>`;
+  }
 
-  const manana=citasH.filter(c=>c.hora<'13:00');
-  const tarde=citasH.filter(c=>c.hora>='13:00');
-  let html='';
-  if(manana.length){html+='<div class="hora-sep">Mañana</div>';manana.forEach(c=>{html+=renderCitaCard(c);});}
-  if(tarde.length){html+='<div class="hora-sep" style="margin-top:14px">Tarde</div>';tarde.forEach(c=>{html+=renderCitaCard(c);});}
-  wrap.innerHTML=html;
+  // Stats
+  document.getElementById('ag-porllevar').textContent = citasF.filter(c=>c.estado==='Pendiente').length;
+  document.getElementById('ag-consulta').textContent  = citasF.filter(c=>c.estado==='Llegó').length;
+  document.getElementById('ag-cobrar').textContent    = fmtM(citasF.filter(c=>c.estado==='Atendida').length*400);
+  document.getElementById('ag-term').textContent      = citasF.filter(c=>c.estado==='Atendida'||c.estado==='Pagado').length;
+
+  const wrap = document.getElementById('agenda-lista');
+  if (!citasF.length) {
+    wrap.innerHTML = `<div class="empty"><i class="ti ti-calendar-off"></i>Sin citas para ${esHoy?'hoy':fmtFechaAgenda(fecha)}<br><span style="font-size:11px;margin-top:6px;display:block"><button class="btn btn-sm btn-g" onclick="om('ncita')" style="margin-top:8px"><i class="ti ti-plus"></i> Agendar cita</button></span></div>`;
+    return;
+  }
+
+  const am = citasF.filter(c=>c.hora<'13:00');
+  const pm = citasF.filter(c=>c.hora>='13:00');
+  let html = '';
+  if (am.length) { html += '<div class="hora-sep">Mañana</div>'; am.forEach(c=>{html+=renderCitaCard(c);}); }
+  if (pm.length) { html += '<div class="hora-sep" style="margin-top:14px">Tarde</div>'; pm.forEach(c=>{html+=renderCitaCard(c);}); }
+  wrap.innerHTML = html;
 }
 
 function renderCitaCard(cita) {
