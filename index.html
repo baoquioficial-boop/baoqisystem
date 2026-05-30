@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BaoQi — Centro de Bienestar Integral</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+</head>
+<body>
+
+<!-- ======================== LOGIN ======================== -->
+<div class="login-wrap" id="login-wrap">
+  <div class="login-logo">
+    <div class="login-circ"><span>保气</span></div>
+    <div class="login-brand">BaoQi</div>
+    <div class="login-sub">Centro de Bienestar Integral</div>
+  </div>
+  <div class="login-card">
+    <!-- PASO 1: seleccionar doctor -->
+    <div class="login-step on" id="step-doctor">
+      <div class="lcard-title">Selecciona tu perfil</div>
+      <div class="lcard-sub">¿Quién inicia sesión hoy?</div>
+      <div class="doctor-list" id="doctor-list">
+        <div class="loading">Cargando doctores...</div>
+      </div>
+    </div>
+    <!-- PASO 2: PIN -->
+    <div class="login-step" id="step-pin">
+      <button class="login-back" onclick="volverDoctores()">
+        <i class="ti ti-arrow-left"></i> Cambiar perfil
+      </button>
+      <div class="lcard-title" id="pin-saludo">Hola...</div>
+      <div class="lcard-sub">Ingresa tu PIN de 4 dígitos</div>
+      <div class="pin-display">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+      <div class="pin-grid">
+        <button class="pin-key" onclick="pinTecla('1')">1</button>
+        <button class="pin-key" onclick="pinTecla('2')">2</button>
+        <button class="pin-key" onclick="pinTecla('3')">3</button>
+        <button class="pin-key" onclick="pinTecla('4')">4</button>
+        <button class="pin-key" onclick="pinTecla('5')">5</button>
+        <button class="pin-key" onclick="pinTecla('6')">6</button>
+        <button class="pin-key" onclick="pinTecla('7')">7</button>
+        <button class="pin-key" onclick="pinTecla('8')">8</button>
+        <button class="pin-key" onclick="pinTecla('9')">9</button>
+        <button class="pin-key" onclick="pinTecla('0')" style="grid-column:2">0</button>
+        <button class="pin-key del" onclick="pinBorrar()"><i class="ti ti-backspace"></i></button>
+      </div>
+      <div class="pin-error" id="pin-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== APP ======================== -->
+<div class="app" id="app">
+  <aside class="sb">
+    <div class="sb-top">
+      <div class="logo-row">
+        <div class="logo-circ"><span>保气</span></div>
+        <div>
+          <div class="l1">Centro de Bienestar Integral</div>
+          <div class="l2">BaoQi</div>
+        </div>
+      </div>
+    </div>
+    <nav id="main-nav">
+      <button class="ni on" onclick="gp('dash',this)"><i class="ti ti-layout-dashboard"></i> Dashboard</button>
+      <button class="ni" onclick="gp('cal',this)"><i class="ti ti-calendar"></i> Calendario <span class="nb" id="nb-cal">0</span></button>
+      <button class="ni" onclick="gp('pac',this)"><i class="ti ti-users"></i> Pacientes <span class="nb" id="nb-pac">0</span></button>
+      <button class="ni" onclick="gp('caja',this)"><i class="ti ti-cash"></i> Caja <span class="nb" id="nb-caja">0</span></button>
+      <button class="ni" onclick="gp('rep',this)"><i class="ti ti-chart-bar"></i> Reportes</button>
+      <button class="ni" onclick="gp('exp',this)"><i class="ti ti-clipboard-heart"></i> Expedientes</button>
+      <div id="nav-admin" style="display:none">
+        <div class="ni-admin"></div>
+        <button class="ni" onclick="gp('admin',this)"><i class="ti ti-shield-check"></i> Administración</button>
+      </div>
+    </nav>
+    <div class="sb-bot">
+      <div class="su">
+        <div class="sav" id="sb-av">?</div>
+        <div>
+          <div class="sun" id="sb-nombre">—</div>
+          <div class="srol" id="sb-rol">—</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="cerrarSesion()">
+        <i class="ti ti-logout"></i> Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="tit" id="ptit">Dashboard</div>
+        <div class="sub" id="pfecha"></div>
+      </div>
+      <div class="tb-r">
+        <button class="btn btn-a" onclick="om('cobrar')"><i class="ti ti-cash"></i> Cobrar</button>
+        <button class="btn btn-g" onclick="om('ncita')"><i class="ti ti-plus"></i> Nueva cita</button>
+        <button class="btn" onclick="om('npac')"><i class="ti ti-user-plus"></i> Paciente</button>
+      </div>
+    </div>
+
+    <div class="cnt">
+
+      <!-- DASHBOARD -->
+      <div class="pg on" id="pg-dash">
+        <div class="sg">
+          <div class="sc"><div class="slb">Citas hoy</div><div class="sv" id="d-citas">—</div><div class="ss" id="d-citas-sub"></div></div>
+          <div class="sc"><div class="slb">Pacientes</div><div class="sv" id="d-pacs">—</div><div class="ss">registrados</div></div>
+          <div class="sc sc-a"><div class="slb">Cobrado hoy</div><div class="sv" id="d-cobrado">—</div><div class="ss" id="d-cobrado-sub"></div></div>
+          <div class="sc sc-a"><div class="slb">Por cobrar</div><div class="sv" id="d-porcobrar">—</div><div class="ss" id="d-porcobrar-sub"></div></div>
+        </div>
+        <div class="tc">
+          <div class="pn">
+            <div class="pnt"><i class="ti ti-clock"></i> Agenda de hoy</div>
+            <div id="agenda-hoy"><div class="empty"><i class="ti ti-calendar-off"></i>Sin citas</div></div>
+          </div>
+          <div class="pn">
+            <div class="pnt"><i class="ti ti-cash"></i> Caja del día</div>
+            <div id="caja-hoy-lista"><div class="empty"><i class="ti ti-receipt-off"></i>Sin movimientos</div></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:10px">
+              <button class="btn btn-a btn-sm" onclick="om('cobrar')"><i class="ti ti-cash"></i> Cobrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDARIO -->
+      <div class="pg" id="pg-cal">
+        <div class="sh">
+          <span class="sti" id="cal-titulo"></span>
+          <div style="display:flex;gap:7px">
+            <button class="btn btn-sm" onclick="cambiarSemana(-1)"><i class="ti ti-chevron-left"></i></button>
+            <button class="btn btn-sm" onclick="cambiarSemana(1)"><i class="ti ti-chevron-right"></i></button>
+            <button class="btn btn-g btn-sm" onclick="om('ncita')"><i class="ti ti-plus"></i> Nueva cita</button>
+          </div>
+        </div>
+        <div class="pn" style="padding:0;overflow:hidden">
+          <div class="cal-head" id="cal-head"></div>
+          <div class="cal-body" id="cal-body"></div>
+        </div>
+      </div>
+
+      <!-- PACIENTES -->
+      <div class="pg" id="pg-pac">
+        <div class="sh" style="margin-bottom:12px">
+          <div class="srch" style="flex:1;max-width:260px">
+            <i class="ti ti-search"></i>
+            <input type="text" placeholder="Buscar paciente..." oninput="filtrarPacs(this.value)">
+          </div>
+          <button class="btn btn-g" onclick="om('npac')"><i class="ti ti-user-plus"></i> Nuevo paciente</button>
+        </div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th>Paciente</th><th style="width:65px">Edad/Sx</th>
+                <th style="width:100px">Teléfono</th><th>Motivo</th>
+                <th style="width:60px">Citas</th><th style="width:80px">Última cita</th>
+                <th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody id="tb-pac"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CAJA -->
+      <div class="pg" id="pg-caja">
+        <div class="sg">
+          <div class="sc sc-a"><div class="slb">Cobrado hoy</div><div class="sv" id="cj-hoy">—</div><div class="ss" id="cj-hoy-n"></div></div>
+          <div class="sc"><div class="slb">Pendiente</div><div class="sv" id="cj-pend">—</div><div class="ss" id="cj-pend-n"></div></div>
+          <div class="sc sc-a"><div class="slb">Esta semana</div><div class="sv" id="cj-sem">—</div></div>
+          <div class="sc sc-a"><div class="slb">Este mes</div><div class="sv" id="cj-mes">—</div></div>
+        </div>
+        <div class="sh">
+          <span class="sti">Movimientos del día</span>
+          <button class="btn btn-a btn-sm" onclick="om('cobrar')"><i class="ti ti-cash"></i> Nuevo cobro</button>
+        </div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:50px">Hora</th><th>Paciente</th><th>Servicio</th>
+                <th style="width:65px">Monto</th><th style="width:85px">Método</th>
+                <th style="width:90px">Doctor</th><th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody id="tb-caja"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- REPORTES -->
+      <div class="pg" id="pg-rep">
+        <div class="rep-filters">
+          <select id="rep-doctor-fil"><option value="">Todos los doctores</option></select>
+          <select id="rep-periodo" onchange="toggleRango()">
+            <option value="hoy">Hoy</option>
+            <option value="semana" selected>Esta semana</option>
+            <option value="mes">Este mes</option>
+            <option value="rango">Rango personalizado</option>
+          </select>
+          <div id="rep-rango" style="display:none;gap:7px;align-items:center">
+            <input type="date" id="rep-desde">
+            <span style="font-size:12px;color:#888">a</span>
+            <input type="date" id="rep-hasta">
+            <button class="btn btn-sm btn-g" onclick="renderReporte()">Aplicar</button>
+          </div>
+          <button class="btn btn-sm" onclick="exportarCSV()"><i class="ti ti-download"></i> CSV</button>
+        </div>
+        <div class="rep-grid">
+          <div class="rep-card rep-card-a"><div class="rc-lbl">Total ingresos</div><div class="rc-val" id="r-total">—</div><div class="rc-sub" id="r-sub"></div></div>
+          <div class="rep-card"><div class="rc-lbl">Sesiones cobradas</div><div class="rc-val" id="r-n">—</div><div class="rc-sub">pagos</div></div>
+          <div class="rep-card"><div class="rc-lbl">Ticket promedio</div><div class="rc-val" id="r-prom">—</div></div>
+        </div>
+        <div class="chart-bar-wrap">
+          <div style="font-size:12px;font-weight:500;margin-bottom:10px">Ingresos por día</div>
+          <div class="bars" id="bars"></div>
+        </div>
+        <div class="metodos-grid">
+          <div class="met-card"><div class="mv" id="r-ef">—</div><div class="ml">Efectivo</div></div>
+          <div class="met-card"><div class="mv" id="r-tj">—</div><div class="ml">Tarjeta</div></div>
+          <div class="met-card"><div class="mv" id="r-tr">—</div><div class="ml">Transferencia</div></div>
+        </div>
+        <div class="sh"><span class="sti">Detalle de cobros</span></div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:80px">Fecha</th><th>Paciente</th><th>Servicio</th>
+                <th style="width:65px">Monto</th><th style="width:85px">Método</th>
+                <th style="width:100px">Doctor</th>
+              </tr>
+            </thead>
+            <tbody id="tb-rep"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- EXPEDIENTES -->
+      <div class="pg" id="pg-exp">
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th>Paciente</th><th style="width:70px">Folio</th><th>Dx biomédico</th>
+                <th>Dx MTCH</th><th style="width:60px">Sesiones</th>
+                <th style="width:70px">Estado</th><th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody id="tb-exp"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ADMINISTRACIÓN -->
+      <div class="pg" id="pg-admin">
+        <div class="sh">
+          <span class="sti">Doctores registrados</span>
+          <button class="btn btn-g btn-sm" onclick="om('ndoc')"><i class="ti ti-user-plus"></i> Nuevo doctor</button>
+        </div>
+        <div class="doc-grid" id="doc-grid"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ======================== MODALES ======================== -->
+
+<!-- Cobrar -->
+<div class="mw" id="m-cobrar">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-cash" style="color:#C9971C;margin-right:5px"></i>Registrar cobro</span>
+      <button class="mx" onclick="cm('cobrar')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div class="fr1"><div class="fg"><label class="fl">Paciente</label><select class="fs" id="cob-pac"></select></div></div>
+      <div class="fr">
+        <div class="fg">
+          <label class="fl">Servicio</label>
+          <select class="fs" id="cob-serv" onchange="actualizarMonto()">
+            <option value="400">Primera vez — $400</option>
+            <option value="650">Sesión subsecuente — $650</option>
+            <option value="2800">Paquete 5 sesiones — $2,800</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Monto</label><input class="fi" id="cob-monto" type="text" value="$400"></div>
+      </div>
+      <div class="sep">Método de pago</div>
+      <div class="met-g">
+        <div class="met on" onclick="sm(this)" data-met="Efectivo"><i class="ti ti-cash"></i>Efectivo</div>
+        <div class="met" onclick="sm(this)" data-met="Tarjeta"><i class="ti ti-credit-card"></i>Tarjeta</div>
+        <div class="met" onclick="sm(this)" data-met="Transferencia"><i class="ti ti-transfer"></i>Transferencia</div>
+      </div>
+      <div class="ctot"><span class="cl">Total a cobrar</span><span class="ca" id="cob-total">$400</span></div>
+      <div class="cbr"><input type="checkbox" id="gent" checked><label for="gent">Generar ticket al confirmar</label></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('cobrar')">Cancelar</button>
+      <button class="btn btn-a" onclick="confirmarCobro()"><i class="ti ti-check"></i> Confirmar cobro</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ticket -->
+<div class="mw" id="m-ticket">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-printer" style="color:#2D6A4F;margin-right:5px"></i>Ticket de pago</span>
+      <button class="mx" onclick="cm('ticket')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb"><div class="tk" id="tk-contenido"></div></div>
+    <div class="mf">
+      <button class="btn" onclick="cm('ticket')">Cerrar</button>
+      <button class="btn btn-g" onclick="window.print()"><i class="ti ti-printer"></i> Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nueva cita -->
+<div class="mw" id="m-ncita">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht">Agendar cita</span>
+      <button class="mx" onclick="cm('ncita')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div class="fr1"><div class="fg"><label class="fl">Paciente</label><select class="fs" id="cita-pac"></select></div></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Tipo</label><select class="fs" id="cita-tipo"><option>Primera vez</option><option>Subsecuente</option></select></div>
+        <div class="fg"><label class="fl">Fecha</label><input class="fi" type="date" id="cita-fecha"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Hora</label><input class="fi" type="time" id="cita-hora" value="09:00"></div>
+        <div class="fg"><label class="fl">Duración</label><select class="fs"><option>30 min</option><option selected>60 min</option><option>90 min</option></select></div>
+      </div>
+      <div class="fr1"><div class="fg"><label class="fl">Motivo</label><textarea class="ft" id="cita-motivo" placeholder="Motivo de consulta..."></textarea></div></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('ncita')">Cancelar</button>
+      <button class="btn btn-g" onclick="guardarCita()"><i class="ti ti-check"></i> Confirmar cita</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nuevo paciente -->
+<div class="mw" id="m-npac">
+  <div class="mo">
+    <div class="mh">
+      <span class="mht">Nuevo paciente</span>
+      <button class="mx" onclick="cm('npac')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div class="tabs">
+        <button class="tab on" onclick="st(this,'np1')">Datos personales</button>
+        <button class="tab" onclick="st(this,'np2')">Antecedentes</button>
+        <button class="tab" onclick="st(this,'np3')">Exploración</button>
+        <button class="tab" onclick="st(this,'np4')">MTCH / Plan</button>
+        <button class="tab" onclick="st(this,'np5')">Consentimiento</button>
+      </div>
+      <div class="tp on" id="t-np1">
+        <div class="fr">
+          <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="p-nombre" type="text" placeholder="Apellidos, Nombre"></div>
+          <div class="fg"><label class="fl">Fecha de nacimiento</label><input class="fi" id="p-fnac" type="date"></div>
+        </div>
+        <div class="fr3">
+          <div class="fg"><label class="fl">Sexo</label><select class="fs" id="p-sexo"><option>Femenino</option><option>Masculino</option></select></div>
+          <div class="fg"><label class="fl">Estado civil</label><input class="fi" id="p-ecivil" type="text"></div>
+          <div class="fg"><label class="fl">Ocupación</label><input class="fi" id="p-ocup" type="text"></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="p-tel" type="tel"></div>
+          <div class="fg"><label class="fl">Correo</label><input class="fi" id="p-email" type="email"></div>
+        </div>
+        <div class="fr1"><div class="fg"><label class="fl">Domicilio</label><input class="fi" id="p-dom" type="text"></div></div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Responsable / tutor</label><input class="fi" id="p-resp" type="text"></div>
+          <div class="fg"><label class="fl">Tel. emergencia</label><input class="fi" id="p-telemer" type="tel"></div>
+        </div>
+        <div class="sep">Motivo de consulta</div>
+        <div class="fr1"><div class="fg"><label class="fl">Motivo principal</label><textarea class="ft" id="p-motivo"></textarea></div></div>
+        <div class="fr1"><div class="fg"><label class="fl">Padecimiento actual</label><textarea class="ft" id="p-padec" placeholder="Inicio, evolución, duración..."></textarea></div></div>
+      </div>
+      <div class="tp" id="t-np2">
+        <div class="sep">Heredofamiliares</div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Padre</label><input class="fi" id="p-padre" type="text"></div>
+          <div class="fg"><label class="fl">Madre</label><input class="fi" id="p-madre" type="text"></div>
+        </div>
+        <div class="fr3">
+          <div class="fg"><label class="fl">Tabaco</label><select class="fs" id="p-tab"><option>No</option><option>Sí</option></select></div>
+          <div class="fg"><label class="fl">Alcohol</label><select class="fs" id="p-alc"><option>No</option><option>Sí</option></select></div>
+          <div class="fg"><label class="fl">Drogas</label><select class="fs" id="p-drog"><option>No</option><option>Sí</option></select></div>
+        </div>
+        <div class="sep">Patológicos</div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Enf. crónicas</label><input class="fi" id="p-cron" type="text"></div>
+          <div class="fg"><label class="fl">Alergias</label><input class="fi" id="p-alerg" type="text"></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Cirugías</label><input class="fi" id="p-cirug" type="text"></div>
+          <div class="fg"><label class="fl">Medicamentos</label><input class="fi" id="p-meds" type="text"></div>
+        </div>
+      </div>
+      <div class="tp" id="t-np3">
+        <div class="fr3">
+          <div class="fg"><label class="fl">T.A.</label><input class="fi" id="p-ta" type="text" placeholder="120/80"></div>
+          <div class="fg"><label class="fl">F.C.</label><input class="fi" id="p-fc" type="text"></div>
+          <div class="fg"><label class="fl">Temperatura</label><input class="fi" id="p-temp" type="text"></div>
+        </div>
+        <div class="fr3">
+          <div class="fg"><label class="fl">Peso (kg)</label><input class="fi" id="p-peso" type="text"></div>
+          <div class="fg"><label class="fl">Talla (m)</label><input class="fi" id="p-talla" type="text"></div>
+          <div class="fg"><label class="fl">IMC</label><input class="fi" id="p-imc" type="text"></div>
+        </div>
+        <div class="fr1"><div class="fg"><label class="fl">Zonas afectadas</label><textarea class="ft" id="p-zonas"></textarea></div></div>
+      </div>
+      <div class="tp" id="t-np4">
+        <div class="fr3">
+          <div class="fg"><label class="fl">Color lengua</label><select class="fs" id="p-lcolor"><option>Normal</option><option>Roja</option><option>Pálida</option><option>Morada</option></select></div>
+          <div class="fg"><label class="fl">Saburra</label><select class="fs" id="p-sabur"><option>Blanca</option><option>Amarilla</option><option>Ausente</option></select></div>
+          <div class="fg"><label class="fl">Forma</label><select class="fs" id="p-lforma"><option>Normal</option><option>Hinchada</option><option>Fisurada</option><option>Seca</option></select></div>
+        </div>
+        <div class="fr3">
+          <div class="fg"><label class="fl">Cun der.</label><input class="fi" id="p-cd" type="text"></div>
+          <div class="fg"><label class="fl">Guan der.</label><input class="fi" id="p-gd" type="text"></div>
+          <div class="fg"><label class="fl">Chi der.</label><input class="fi" id="p-chd" type="text"></div>
+        </div>
+        <div class="fr3">
+          <div class="fg"><label class="fl">Cun izq.</label><input class="fi" id="p-ci" type="text"></div>
+          <div class="fg"><label class="fl">Guan izq.</label><input class="fi" id="p-gi" type="text"></div>
+          <div class="fg"><label class="fl">Chi izq.</label><input class="fi" id="p-chi" type="text"></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Dx biomédico</label><input class="fi" id="p-dxbio" type="text"></div>
+          <div class="fg"><label class="fl">Dx MTCH</label><input class="fi" id="p-dxmtch" type="text"></div>
+        </div>
+        <div class="fr1"><div class="fg"><label class="fl">Puntos seleccionados</label><input class="fi" id="p-puntos" type="text" placeholder="ST36, LI4, GV20..."></div></div>
+      </div>
+      <div class="tp" id="t-np5">
+        <div class="consent-box">
+          <strong>Consentimiento informado — NOM-004-SSA3-2012 / COFEPRIS</strong><br>
+          Estimulación de puntos anatómicos mediante agujas estériles desechables autorizadas por COFEPRIS.
+          Datos resguardados conforme a la Ley Federal de Protección de Datos Personales.
+        </div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Nombre del paciente</label><input class="fi" id="p-cnombre" type="text"></div>
+          <div class="fg"><label class="fl">Identificación oficial</label><input class="fi" id="p-cid" type="text" placeholder="INE / Pasaporte"></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Acupunturista responsable</label><input class="fi" id="p-crespons" type="text"></div>
+          <div class="fg"><label class="fl">Cédula profesional</label><input class="fi" id="p-cced" type="text"></div>
+        </div>
+        <div class="cbr" style="margin-top:10px">
+          <input type="checkbox" id="cck">
+          <label for="cck">Declaro haber comprendido y otorgo consentimiento libre y voluntario.</label>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('npac')">Cancelar</button>
+      <button class="btn btn-g" onclick="guardarPaciente()"><i class="ti ti-check"></i> Guardar paciente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nota SOAP -->
+<div class="mw" id="m-soap">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht" id="soap-titulo">Nota SOAP</span>
+      <button class="mx" onclick="cm('soap')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div class="fr">
+        <div class="fg"><label class="fl">Fecha</label><input class="fi" id="soap-fecha" type="date"></div>
+        <div class="fg"><label class="fl">Sesión #</label><input class="fi" id="soap-num" type="number" placeholder="1"></div>
+      </div>
+      <div class="sep">S — Subjetivo</div>
+      <div class="fr1"><textarea class="ft" id="soap-s" placeholder="Lo que refiere el paciente..."></textarea></div>
+      <div class="sep">O — Objetivo</div>
+      <div class="fr1"><textarea class="ft" id="soap-o" placeholder="Hallazgos clínicos..."></textarea></div>
+      <div class="sep">A — Análisis</div>
+      <div class="fr1"><textarea class="ft" id="soap-a" placeholder="Interpretación clínica y energética..."></textarea></div>
+      <div class="sep">P — Plan</div>
+      <div class="fr1"><textarea class="ft" id="soap-p" placeholder="Puntos, técnicas, indicaciones..."></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('soap')">Cancelar</button>
+      <button class="btn btn-g" onclick="guardarSOAP()"><i class="ti ti-device-floppy"></i> Guardar nota</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nuevo doctor -->
+<div class="mw" id="m-ndoc">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-user-plus" style="color:#2D6A4F;margin-right:5px"></i>Registrar doctor</span>
+      <button class="mx" onclick="cm('ndoc')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div class="fr">
+        <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="d-nombre" type="text" placeholder="Dr. Nombre Apellido"></div>
+        <div class="fg"><label class="fl">Especialidad</label><input class="fi" id="d-esp" type="text" placeholder="Acupuntura, MTCH..."></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Cédula profesional</label><input class="fi" id="d-ced" type="text"></div>
+        <div class="fg"><label class="fl">Correo</label><input class="fi" id="d-email" type="email"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Rol</label><select class="fs" id="d-rol"><option value="doctor">Doctor</option><option value="admin">Administrador</option></select></div>
+        <div class="fg"><label class="fl">PIN de acceso (4 dígitos) *</label><input class="fi" id="d-pin" type="password" maxlength="4" placeholder="••••"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('ndoc')">Cancelar</button>
+      <button class="btn btn-g" onclick="guardarDoctor()"><i class="ti ti-check"></i> Registrar doctor</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
