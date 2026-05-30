@@ -2,54 +2,48 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>BaoQi — Centro de Bienestar Integral</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 </head>
 <body>
 
-<!-- ======================== LOGIN ======================== -->
+<!-- ======================== LOGIN — solo PIN ======================== -->
 <div class="login-wrap" id="login-wrap">
   <div class="login-logo">
     <div class="login-circ"><span>保气</span></div>
     <div class="login-brand">BaoQi</div>
     <div class="login-sub">Centro de Bienestar Integral</div>
   </div>
+
   <div class="login-card">
-    <div class="login-step on" id="step-doctor">
-      <div class="lcard-title">Selecciona tu perfil</div>
-      <div class="lcard-sub">¿Quién inicia sesión hoy?</div>
-      <div class="doctor-list" id="doctor-list">
-        <div class="loading">Cargando doctores...</div>
-      </div>
+    <div class="pin-hint" id="pin-hint">Ingresa tu PIN para continuar</div>
+
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
     </div>
-    <div class="login-step" id="step-pin">
-      <button class="login-back" onclick="volverDoctores()">
-        <i class="ti ti-arrow-left"></i> Cambiar perfil
+
+    <div class="pin-error" id="pin-error"></div>
+
+    <div class="pin-grid">
+      <button class="pin-key" onclick="pinTecla('1')">1</button>
+      <button class="pin-key" onclick="pinTecla('2')">2</button>
+      <button class="pin-key" onclick="pinTecla('3')">3</button>
+      <button class="pin-key" onclick="pinTecla('4')">4</button>
+      <button class="pin-key" onclick="pinTecla('5')">5</button>
+      <button class="pin-key" onclick="pinTecla('6')">6</button>
+      <button class="pin-key" onclick="pinTecla('7')">7</button>
+      <button class="pin-key" onclick="pinTecla('8')">8</button>
+      <button class="pin-key" onclick="pinTecla('9')">9</button>
+      <button class="pin-key pin-key-blank" disabled></button>
+      <button class="pin-key" onclick="pinTecla('0')">0</button>
+      <button class="pin-key pin-key-del" onclick="pinBorrar()">
+        <i class="ti ti-backspace"></i>
       </button>
-      <div class="lcard-title" id="pin-saludo">Hola...</div>
-      <div class="lcard-sub">Ingresa tu PIN de 4 dígitos</div>
-      <div class="pin-display">
-        <div class="pin-dot" id="pd0"></div>
-        <div class="pin-dot" id="pd1"></div>
-        <div class="pin-dot" id="pd2"></div>
-        <div class="pin-dot" id="pd3"></div>
-      </div>
-      <div class="pin-grid">
-        <button class="pin-key" onclick="pinTecla('1')">1</button>
-        <button class="pin-key" onclick="pinTecla('2')">2</button>
-        <button class="pin-key" onclick="pinTecla('3')">3</button>
-        <button class="pin-key" onclick="pinTecla('4')">4</button>
-        <button class="pin-key" onclick="pinTecla('5')">5</button>
-        <button class="pin-key" onclick="pinTecla('6')">6</button>
-        <button class="pin-key" onclick="pinTecla('7')">7</button>
-        <button class="pin-key" onclick="pinTecla('8')">8</button>
-        <button class="pin-key" onclick="pinTecla('9')">9</button>
-        <button class="pin-key" onclick="pinTecla('0')" style="grid-column:2">0</button>
-        <button class="pin-key del" onclick="pinBorrar()"><i class="ti ti-backspace"></i></button>
-      </div>
-      <div class="pin-error" id="pin-error"></div>
     </div>
   </div>
 </div>
@@ -67,14 +61,26 @@
       </div>
     </div>
     <nav>
-      <button class="ni on" onclick="gp('agenda',this)"><i class="ti ti-calendar"></i> <span class="ni-txt">Agenda</span> <span class="nb" id="nb-agenda">0</span></button>
-      <button class="ni" onclick="gp('pac',this)"><i class="ti ti-users"></i> <span class="ni-txt">Pacientes</span> <span class="nb" id="nb-pac">0</span></button>
-      <button class="ni" onclick="gp('caja',this)"><i class="ti ti-cash"></i> <span class="ni-txt">Caja</span> <span class="nb" id="nb-caja">0</span></button>
-      <button class="ni" onclick="gp('rep',this)"><i class="ti ti-chart-bar"></i> <span class="ni-txt">Reportes</span></button>
-      <button class="ni" onclick="gp('exp',this)"><i class="ti ti-clipboard-heart"></i> <span class="ni-txt">Expedientes</span></button>
+      <button class="ni on" onclick="gp('agenda',this)">
+        <i class="ti ti-calendar"></i><span class="ni-txt">Agenda</span><span class="nb" id="nb-agenda">0</span>
+      </button>
+      <button class="ni" onclick="gp('pac',this)">
+        <i class="ti ti-users"></i><span class="ni-txt">Pacientes</span><span class="nb" id="nb-pac">0</span>
+      </button>
+      <button class="ni" onclick="gp('caja',this)">
+        <i class="ti ti-cash"></i><span class="ni-txt">Caja</span><span class="nb" id="nb-caja">0</span>
+      </button>
+      <button class="ni" onclick="gp('rep',this)">
+        <i class="ti ti-chart-bar"></i><span class="ni-txt">Reportes</span>
+      </button>
+      <button class="ni" onclick="gp('exp',this)">
+        <i class="ti ti-clipboard-heart"></i><span class="ni-txt">Expedientes</span>
+      </button>
       <div id="nav-admin" style="display:none">
         <div class="ni-sep"></div>
-        <button class="ni" onclick="gp('admin',this)"><i class="ti ti-shield-check"></i> <span class="ni-txt">Administración</span></button>
+        <button class="ni" onclick="gp('admin',this)">
+          <i class="ti ti-shield-check"></i><span class="ni-txt">Administración</span>
+        </button>
       </div>
     </nav>
     <div class="sb-bot">
@@ -86,7 +92,7 @@
         </div>
       </div>
       <button class="btn-logout" onclick="cerrarSesion()">
-        <i class="ti ti-logout"></i> <span class="ni-txt">Cerrar sesión</span>
+        <i class="ti ti-logout"></i><span class="ni-txt">Cerrar sesión</span>
       </button>
     </div>
   </aside>
@@ -98,14 +104,18 @@
         <div class="sub" id="pfecha"></div>
       </div>
       <div class="tb-r">
-        <button class="btn btn-a" onclick="om('cobrar')"><i class="ti ti-cash"></i> <span class="btn-txt">Cobrar</span></button>
-        <button class="btn btn-g" onclick="om('ncita')"><i class="ti ti-plus"></i> <span class="btn-txt">Nueva cita</span></button>
+        <button class="btn btn-a" onclick="om('cobrar')">
+          <i class="ti ti-cash"></i><span class="btn-txt">Cobrar</span>
+        </button>
+        <button class="btn btn-g" onclick="om('ncita')">
+          <i class="ti ti-plus"></i><span class="btn-txt">Nueva cita</span>
+        </button>
       </div>
     </div>
 
     <div class="cnt">
 
-      <!-- AGENDA — nuevo flujo -->
+      <!-- AGENDA -->
       <div class="pg on" id="pg-agenda">
         <div class="sg">
           <div class="sc"><div class="slb">Por llegar</div><div class="sv" id="ag-porllevar">0</div></div>
@@ -114,7 +124,7 @@
           <div class="sc"><div class="slb">Terminadas</div><div class="sv" id="ag-term">0</div></div>
         </div>
         <div class="agenda-wrap" id="agenda-lista">
-          <div class="empty"><i class="ti ti-calendar-off"></i>Sin citas hoy</div>
+          <div class="empty"><i class="ti ti-calendar-off"></i>Sin citas para hoy</div>
         </div>
       </div>
 
@@ -123,14 +133,15 @@
         <div class="sh">
           <div class="srch" style="flex:1;max-width:300px">
             <i class="ti ti-search"></i>
-            <input type="text" placeholder="Buscar..." oninput="filtrarPacs(this.value)">
+            <input type="text" placeholder="Buscar paciente..." oninput="filtrarPacs(this.value)">
           </div>
         </div>
         <div class="tw">
           <table>
             <thead><tr>
-              <th>Paciente</th><th style="width:65px">Edad</th>
-              <th style="width:100px" class="hide-sm">Teléfono</th>
+              <th>Paciente</th>
+              <th style="width:65px">Edad</th>
+              <th style="width:105px" class="hide-sm">Teléfono</th>
               <th class="hide-sm">Motivo</th>
               <th style="width:55px">Citas</th>
               <th style="width:50px"></th>
@@ -155,11 +166,12 @@
         <div class="tw">
           <table>
             <thead><tr>
-              <th style="width:50px">Hora</th><th>Paciente</th>
+              <th style="width:50px">Hora</th>
+              <th>Paciente</th>
               <th class="hide-sm">Servicio</th>
               <th style="width:65px">Monto</th>
               <th style="width:80px" class="hide-sm">Método</th>
-              <th style="width:80px" class="hide-sm">Doctor</th>
+              <th style="width:85px" class="hide-sm">Doctor</th>
               <th style="width:45px"></th>
             </tr></thead>
             <tbody id="tb-caja"></tbody>
@@ -170,7 +182,7 @@
       <!-- REPORTES -->
       <div class="pg" id="pg-rep">
         <div class="rep-filters">
-          <select id="rep-doctor-fil"><option value="">Todos los doctores</option></select>
+          <select id="rep-doctor-fil" style="display:none"><option value="">Todos</option></select>
           <select id="rep-periodo" onchange="toggleRango()">
             <option value="hoy">Hoy</option>
             <option value="semana" selected>Esta semana</option>
@@ -202,11 +214,12 @@
         <div class="tw">
           <table>
             <thead><tr>
-              <th style="width:80px">Fecha</th><th>Paciente</th>
+              <th style="width:80px">Fecha</th>
+              <th>Paciente</th>
               <th class="hide-sm">Servicio</th>
               <th style="width:65px">Monto</th>
               <th style="width:80px" class="hide-sm">Método</th>
-              <th style="width:90px" class="hide-sm">Doctor</th>
+              <th style="width:90px" class="hide-sm" id="th-doctor-rep">Doctor</th>
             </tr></thead>
             <tbody id="tb-rep"></tbody>
           </table>
@@ -230,11 +243,13 @@
         </div>
       </div>
 
-      <!-- ADMINISTRACIÓN -->
+      <!-- ADMINISTRACIÓN (solo admin) -->
       <div class="pg" id="pg-admin">
         <div class="sh">
           <span class="sti">Doctores registrados</span>
-          <button class="btn btn-g btn-sm" onclick="om('ndoc')"><i class="ti ti-user-plus"></i> Nuevo doctor</button>
+          <button class="btn btn-g btn-sm" onclick="om('ndoc')">
+            <i class="ti ti-user-plus"></i> Nuevo doctor
+          </button>
         </div>
         <div class="doc-grid" id="doc-grid"></div>
       </div>
@@ -253,7 +268,7 @@
       <button class="mx" onclick="cm('ncita')"><i class="ti ti-x"></i></button>
     </div>
     <div class="mb">
-      <div class="info-box"><i class="ti ti-info-circle"></i> Solo datos básicos. La historia clínica se llena cuando el paciente llega.</div>
+      <div class="info-box"><i class="ti ti-info-circle"></i>Solo datos básicos. La historia clínica se llena cuando el paciente llega.</div>
       <div class="sep">Datos del paciente</div>
       <div class="fr">
         <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="nc-nombre" type="text" placeholder="Apellidos, Nombre"></div>
@@ -278,7 +293,7 @@
   </div>
 </div>
 
-<!-- LLEGÓ — opciones -->
+<!-- LLEGÓ -->
 <div class="mw" id="m-llego">
   <div class="mo mo-xs">
     <div class="mh">
@@ -304,7 +319,7 @@
   </div>
 </div>
 
-<!-- HISTORIA CLÍNICA COMPLETA (primera vez) -->
+<!-- HISTORIA CLÍNICA -->
 <div class="mw" id="m-hc">
   <div class="mo">
     <div class="mh">
@@ -379,15 +394,15 @@
           <label class="chk"><input type="checkbox" id="hc-ttu"> Tuina / Qi Gong</label>
         </div>
         <div class="fr"><div class="fg"><label class="fl">Puntos sesión 1</label><input class="fi" id="hc-puntos" type="text" placeholder="ST36, LI4, GV20..."></div><div class="fg"><label class="fl">Retención (min)</label><input class="fi" id="hc-ret" type="number" placeholder="20"></div></div>
-        <div class="fr"><div class="fg"><label class="fl">Duración / frecuencia del plan</label><input class="fi" id="hc-frec" type="text" placeholder="10 sesiones, 2/semana"></div><div class="fg"><label class="fl">Pronóstico</label><select class="fs" id="hc-prog"><option>Favorable</option><option>Reservado</option><option>Desfavorable</option></select></div></div>
+        <div class="fr"><div class="fg"><label class="fl">Duración / frecuencia</label><input class="fi" id="hc-frec" type="text" placeholder="10 sesiones, 2/semana"></div><div class="fg"><label class="fl">Pronóstico</label><select class="fs" id="hc-prog"><option>Favorable</option><option>Reservado</option><option>Desfavorable</option></select></div></div>
         <div class="sep">Nota SOAP — Sesión 1</div>
         <div class="fr1"><div class="fg"><label class="fl">S — Subjetivo</label><textarea class="ft" id="hc-s" placeholder="Lo que refiere el paciente..."></textarea></div></div>
-        <div class="fr1"><div class="fg"><label class="fl">O — Objetivo</label><textarea class="ft" id="hc-o" placeholder="Hallazgos clínicos, lengua, pulso..."></textarea></div></div>
+        <div class="fr1"><div class="fg"><label class="fl">O — Objetivo</label><textarea class="ft" id="hc-o" placeholder="Hallazgos clínicos..."></textarea></div></div>
         <div class="fr1"><div class="fg"><label class="fl">A — Análisis</label><textarea class="ft" id="hc-a" placeholder="Interpretación clínica y energética..."></textarea></div></div>
         <div class="fr1"><div class="fg"><label class="fl">P — Plan</label><textarea class="ft" id="hc-p" placeholder="Indicaciones, próxima sesión..."></textarea></div></div>
       </div>
       <div class="tp" id="t-hc6">
-        <div class="consent-box"><strong style="display:block;margin-bottom:4px">Consentimiento informado — NOM-004-SSA3-2012 / COFEPRIS</strong>Estimulación de puntos anatómicos mediante agujas estériles desechables autorizadas por COFEPRIS. Posibles efectos: dolor leve, hematomas, mareo. Datos resguardados conforme a la Ley Federal de Protección de Datos Personales.</div>
+        <div class="consent-box"><strong style="display:block;margin-bottom:4px">Consentimiento informado — NOM-004-SSA3-2012 / COFEPRIS</strong>Estimulación de puntos anatómicos mediante agujas estériles desechables autorizadas por COFEPRIS. Datos resguardados conforme a la Ley Federal de Protección de Datos Personales.</div>
         <div class="fr"><div class="fg"><label class="fl">Nombre del paciente</label><input class="fi" id="hc-cnombre" type="text"></div><div class="fg"><label class="fl">Identificación oficial</label><input class="fi" id="hc-cid" type="text" placeholder="INE / Pasaporte"></div></div>
         <div class="fr"><div class="fg"><label class="fl">Acupunturista responsable</label><input class="fi" id="hc-crespons" type="text"></div><div class="fg"><label class="fl">Cédula profesional</label><input class="fi" id="hc-cced" type="text"></div></div>
         <div class="fr"><div class="fg"><label class="fl">Fecha de firma</label><input class="fi" id="hc-cfecha" type="date"></div><div></div></div>
@@ -401,7 +416,7 @@
   </div>
 </div>
 
-<!-- NOTA SOAP (subsecuentes) — flujo por pasos -->
+<!-- NOTA SOAP -->
 <div class="mw" id="m-soap">
   <div class="mo mo-sm">
     <div class="mh">
@@ -409,34 +424,29 @@
       <button class="mx" onclick="cm('soap')"><i class="ti ti-x"></i></button>
     </div>
     <div class="mb">
-      <!-- steps indicator -->
       <div class="soap-steps">
-        <div class="ss-item active" id="ss0" onclick="soapIr(0)"><div class="ss-dot"></div><span>S</span></div>
+        <div class="ss-item active" id="ss0" onclick="soapIr(0)"><div class="ss-dot">S</div><span>Subjetivo</span></div>
         <div class="ss-line"></div>
-        <div class="ss-item" id="ss1" onclick="soapIr(1)"><div class="ss-dot"></div><span>O</span></div>
+        <div class="ss-item" id="ss1" onclick="soapIr(1)"><div class="ss-dot">O</div><span>Objetivo</span></div>
         <div class="ss-line"></div>
-        <div class="ss-item" id="ss2" onclick="soapIr(2)"><div class="ss-dot"></div><span>A</span></div>
+        <div class="ss-item" id="ss2" onclick="soapIr(2)"><div class="ss-dot">A</div><span>Análisis</span></div>
         <div class="ss-line"></div>
-        <div class="ss-item" id="ss3" onclick="soapIr(3)"><div class="ss-dot"></div><span>P</span></div>
+        <div class="ss-item" id="ss3" onclick="soapIr(3)"><div class="ss-dot">P</div><span>Plan</span></div>
       </div>
-
-      <!-- S -->
       <div class="soap-sec on" id="soap-s-sec">
         <div class="soap-badge soap-s">S — Subjetivo</div>
-        <div class="fg"><label class="fl">Paciente refiere</label><textarea class="ft" id="soap-s-ref" placeholder="Lo que refiere el paciente en sus propias palabras..."></textarea></div>
-        <div class="fg">
-          <label class="fl">Evolución desde consulta anterior</label>
+        <div class="fg"><label class="fl">Paciente refiere</label><textarea class="ft" id="soap-s-ref" placeholder="Lo que refiere el paciente..."></textarea></div>
+        <div class="fg"><label class="fl">Evolución desde consulta anterior</label>
           <div class="opt-row3">
             <div class="opt3 on-g" onclick="sel3(this,'s-evol')">Mejoría</div>
             <div class="opt3" onclick="sel3(this,'s-evol')">Sin cambios</div>
             <div class="opt3" onclick="sel3(this,'s-evol')">Empeoramiento</div>
           </div>
         </div>
-        <div class="fg">
-          <label class="fl">Escala de dolor EVA</label>
+        <div class="fg"><label class="fl">Escala de dolor EVA</label>
           <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
             <input type="range" id="eva-slider" min="0" max="10" value="5" step="1" class="eva-range" oninput="document.getElementById('eva-num').textContent=this.value">
-            <span style="font-size:20px;font-weight:500;min-width:32px;text-align:center" id="eva-num">5</span>
+            <span style="font-size:20px;font-weight:500;min-width:28px;text-align:center" id="eva-num">5</span>
             <span style="font-size:12px;color:var(--color-text-tertiary)">/10</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-tertiary);margin-top:4px"><span>Sin dolor</span><span>Dolor máximo</span></div>
@@ -444,38 +454,30 @@
         <div class="fg"><label class="fl">Síntomas principales</label><textarea class="ft" id="soap-s-sint" placeholder="Localización, características..."></textarea></div>
         <div class="fg"><label class="fl">Observaciones</label><textarea class="ft" id="soap-s-obs" placeholder="Estado emocional, sueño, energía..." style="min-height:52px"></textarea></div>
       </div>
-
-      <!-- O -->
       <div class="soap-sec" id="soap-o-sec">
         <div class="soap-badge soap-o">O — Objetivo</div>
-        <div class="fg"><label class="fl">Signos observados</label><textarea class="ft" id="soap-o-sign" placeholder="Aspecto general, signos vitales relevantes..."></textarea></div>
-        <div class="fg"><label class="fl">Exploración física</label><textarea class="ft" id="soap-o-expl" placeholder="Hallazgos en la exploración..."></textarea></div>
+        <div class="fg"><label class="fl">Signos observados</label><textarea class="ft" id="soap-o-sign" placeholder="Aspecto general, signos vitales..."></textarea></div>
+        <div class="fg"><label class="fl">Exploración física</label><textarea class="ft" id="soap-o-expl" placeholder="Hallazgos..."></textarea></div>
         <div class="fg"><label class="fl">Lengua</label><input class="fi" id="soap-o-len" type="text" placeholder="Color, saburra, forma, humedad..."></div>
         <div class="fg"><label class="fl">Pulso</label><input class="fi" id="soap-o-pul" type="text" placeholder="Características del pulso..."></div>
         <div class="fg"><label class="fl">Puntos dolorosos / hallazgos</label><textarea class="ft" id="soap-o-pts" placeholder="Zonas de hipertonía, puntos gatillo..."></textarea></div>
       </div>
-
-      <!-- A -->
       <div class="soap-sec" id="soap-a-sec">
         <div class="soap-badge soap-a">A — Análisis</div>
         <div class="fg"><label class="fl">Diagnóstico biomédico</label><input class="fi" id="soap-a-dxb" type="text"></div>
         <div class="fg"><label class="fl">Diagnóstico energético (MTCH)</label><input class="fi" id="soap-a-dxm" type="text"></div>
-        <div class="fg">
-          <label class="fl">Evolución del tratamiento</label>
+        <div class="fg"><label class="fl">Evolución del tratamiento</label>
           <div class="opt-row3">
             <div class="opt3 on-g" onclick="sel3(this,'a-evol')">Favorable</div>
             <div class="opt3" onclick="sel3(this,'a-evol')">Estable</div>
             <div class="opt3" onclick="sel3(this,'a-evol')">Reservada</div>
           </div>
         </div>
-        <div class="fg"><label class="fl">Observaciones clínicas</label><textarea class="ft" id="soap-a-obs" placeholder="Razonamiento clínico, interpretación..."></textarea></div>
+        <div class="fg"><label class="fl">Observaciones clínicas</label><textarea class="ft" id="soap-a-obs" placeholder="Razonamiento clínico..."></textarea></div>
       </div>
-
-      <!-- P -->
       <div class="soap-sec" id="soap-p-sec">
         <div class="soap-badge soap-p">P — Plan terapéutico</div>
-        <div class="fg">
-          <label class="fl">Tratamiento aplicado</label>
+        <div class="fg"><label class="fl">Tratamiento aplicado</label>
           <div class="tec-grid">
             <div class="tec on" onclick="this.classList.toggle('on')">Acupuntura</div>
             <div class="tec" onclick="this.classList.toggle('on')">Auriculoterapia</div>
@@ -487,11 +489,10 @@
             <div class="tec" onclick="this.classList.toggle('on')">Otro</div>
           </div>
         </div>
-        <div class="fr"><div class="fg"><label class="fl">Puntos utilizados</label><textarea class="ft" id="soap-p-ptos" placeholder="ST36 bil., LI4, GV20..." style="min-height:52px"></textarea></div></div>
-        <div class="fr"><div class="fg"><label class="fl">Tiempo de retención (min)</label><input class="fi" id="soap-p-ret" type="number" placeholder="20" style="font-size:18px;text-align:center;font-weight:500"></div><div class="fg"><label class="fl">Sesión #</label><input class="fi" id="soap-num" type="number" placeholder="1" style="font-size:18px;text-align:center;font-weight:500"></div></div>
+        <div class="fg"><label class="fl">Puntos utilizados</label><textarea class="ft" id="soap-p-ptos" placeholder="ST36 bil., LI4, GV20..." style="min-height:52px"></textarea></div>
+        <div class="fr"><div class="fg"><label class="fl">Retención (min)</label><input class="fi" id="soap-p-ret" type="number" placeholder="20" style="font-size:18px;text-align:center;font-weight:500"></div><div class="fg"><label class="fl">Sesión #</label><input class="fi" id="soap-num" type="number" placeholder="1" style="font-size:18px;text-align:center;font-weight:500"></div></div>
         <div class="fg"><label class="fl">Indicaciones al paciente</label><textarea class="ft" id="soap-p-ind" placeholder="Reposo, hidratación, próxima cita..."></textarea></div>
       </div>
-
       <div style="display:flex;gap:8px;margin-top:14px" id="soap-nav-btns">
         <button class="btn" id="soap-prev" onclick="soapNav(-1)" style="display:none"><i class="ti ti-arrow-left"></i> Atrás</button>
         <button class="btn btn-g" id="soap-next" onclick="soapNav(1)" style="flex:1;justify-content:center">Siguiente <i class="ti ti-arrow-right"></i></button>
@@ -529,16 +530,17 @@
   </div>
 </div>
 
-<!-- NUEVO DOCTOR -->
+<!-- NUEVO DOCTOR (solo admin) -->
 <div class="mw" id="m-ndoc">
   <div class="mo mo-sm">
     <div class="mh"><span class="mht"><i class="ti ti-user-plus" style="color:#2D6A4F;margin-right:5px"></i>Registrar doctor</span><button class="mx" onclick="cm('ndoc')"><i class="ti ti-x"></i></button></div>
     <div class="mb">
-      <div class="fr"><div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="d-nombre" type="text"></div><div class="fg"><label class="fl">Especialidad</label><input class="fi" id="d-esp" type="text"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="d-nombre" type="text" placeholder="Dr. Nombre Apellido"></div><div class="fg"><label class="fl">Especialidad</label><input class="fi" id="d-esp" type="text" placeholder="Acupuntura, MTCH..."></div></div>
       <div class="fr"><div class="fg"><label class="fl">Cédula profesional</label><input class="fi" id="d-ced" type="text"></div><div class="fg"><label class="fl">Correo</label><input class="fi" id="d-email" type="email"></div></div>
-      <div class="fr"><div class="fg"><label class="fl">Rol</label><select class="fs" id="d-rol"><option value="doctor">Doctor</option><option value="admin">Administrador</option></select></div><div class="fg"><label class="fl">PIN (4 dígitos) *</label><input class="fi" id="d-pin" type="password" maxlength="4" placeholder="••••"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">Rol</label><select class="fs" id="d-rol"><option value="doctor">Doctor</option><option value="admin">Administrador</option></select></div><div class="fg"><label class="fl">PIN único (4 dígitos) *</label><input class="fi" id="d-pin" type="password" maxlength="4" placeholder="••••" inputmode="numeric"></div></div>
+      <div class="info-box" style="margin-top:8px"><i class="ti ti-shield-lock"></i>El PIN debe ser único — el sistema lo usará para identificar automáticamente al doctor sin mostrar su nombre en el login.</div>
     </div>
-    <div class="mf"><button class="btn" onclick="cm('ndoc')">Cancelar</button><button class="btn btn-g" onclick="guardarDoctor()"><i class="ti ti-check"></i> Registrar</button></div>
+    <div class="mf"><button class="btn" onclick="cm('ndoc')">Cancelar</button><button class="btn btn-g" onclick="guardarDoctor()"><i class="ti ti-check"></i> Registrar doctor</button></div>
   </div>
 </div>
 

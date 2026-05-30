@@ -340,3 +340,40 @@ tr:hover td { background: var(--bg-sec); }
   .soap-steps { margin-bottom: 12px; }
   .ss-dot { width: 24px; height: 24px; font-size: 10px; }
 }
+
+/* ========== LOGIN v3 — solo PIN, sin lista ========== */
+.login-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); padding:24px; }
+.login-logo { display:flex; flex-direction:column; align-items:center; margin-bottom:32px; }
+.login-circ { width:72px; height:72px; border-radius:50%; border:3px solid var(--au); display:flex; align-items:center; justify-content:center; background:white; margin-bottom:12px; }
+.login-circ span { font-size:26px; color:var(--gd); font-weight:500; }
+.login-brand { font-size:26px; color:var(--au); font-weight:600; letter-spacing:.04em; }
+.login-sub { font-size:11px; color:var(--text-ter); text-transform:uppercase; letter-spacing:.06em; margin-top:3px; }
+
+.login-card { background:white; border:.5px solid var(--border); border-radius:16px; padding:28px 24px; width:100%; max-width:300px; box-shadow:0 4px 20px rgba(0,0,0,.08); text-align:center; }
+
+.pin-hint { font-size:13px; color:var(--text-sec); margin-bottom:20px; min-height:20px; transition:color .2s; }
+
+.pin-dots { display:flex; justify-content:center; gap:14px; margin-bottom:8px; }
+.pin-dot { width:18px; height:18px; border-radius:50%; border:2.5px solid var(--border-sec); background:transparent; transition:all .2s; }
+.pin-dot.on { background:var(--g); border-color:var(--g); transform:scale(1.1); }
+
+.pin-error { font-size:12px; color:#A32D2D; min-height:18px; margin-bottom:16px; }
+
+.pin-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:8px; }
+.pin-key { padding:16px; border-radius:10px; border:.5px solid var(--border); background:white; font-size:20px; font-weight:500; cursor:pointer; text-align:center; color:var(--text); transition:all .15s; -webkit-tap-highlight-color:transparent; }
+.pin-key:hover { background:var(--bg-sec); }
+.pin-key:active { background:var(--gl); border-color:var(--g); transform:scale(0.95); }
+.pin-key-blank { background:transparent; border-color:transparent; cursor:default; }
+.pin-key-blank:hover { background:transparent; }
+.pin-key-del { font-size:16px; color:var(--text-sec); }
+
+/* Shake animation para PIN incorrecto */
+@keyframes shake {
+  0%,100% { transform:translateX(0); }
+  20% { transform:translateX(-8px); }
+  40% { transform:translateX(8px); }
+  60% { transform:translateX(-6px); }
+  80% { transform:translateX(6px); }
+}
+.shake { animation:shake .45s ease; }
+.shake .pin-dot { border-color:#E24B4A; background:#E24B4A; }
