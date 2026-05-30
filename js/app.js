@@ -306,71 +306,134 @@ function generarTicket(c) {
 }
 
 /* ============ AGENDA — navegación por días ============ */
-let agendaFecha = hoy(); // fecha actualmente visible en agenda
+let agendaFecha = hoy();
+let cajaFecha = hoy();
+let semOffset = 0; // semanas desde hoy, compartido entre agenda y caja
 
-function agendaCambiarDia(dias) {
-  const d = new Date(agendaFecha + 'T12:00:00');
-  d.setDate(d.getDate() + dias);
-  agendaFecha = d.toISOString().slice(0, 10);
-  renderAgenda();
+/* ---- Utilidades de semana ---- */
+function getSabDom(weekOffset) {
+  const hoyD = new Date();
+  const diaSem = hoyD.getDay();
+  const lunes = new Date(hoyD);
+  lunes.setDate(hoyD.getDate() - (diaSem === 0 ? 6 : diaSem - 1) + weekOffset * 7);
+  return [5, 6].map(offset => {
+    const d = new Date(lunes);
+    d.setDate(lunes.getDate() + offset);
+    const iso = d.toISOString().slice(0, 10);
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const nombres = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    return { iso, diaNombre: nombres[d.getDay()], diaNum: d.getDate(), mes: meses[d.getMonth()], esHoy: iso === hoy() };
+  });
 }
 
-function agendaIrHoy() {
-  agendaFecha = hoy();
-  renderAgenda();
+function getMesLabel(weekOffset) {
+  const dias = getSabDom(weekOffset);
+  const d = new Date(dias[0].iso + 'T12:00:00');
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return meses[d.getMonth()] + ' ' + d.getFullYear();
 }
 
 function fmtFechaAgenda(iso) {
   const d = new Date(iso + 'T12:00:00');
-  const h = hoy();
-  const manana = new Date(); manana.setDate(manana.getDate() + 1);
-  const mananaISO = manana.toISOString().slice(0, 10);
-  const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
-  const ayerISO = ayer.toISOString().slice(0, 10);
-  const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const manana = new Date(); manana.setDate(manana.getDate()+1);
+  const ayer = new Date(); ayer.setDate(ayer.getDate()-1);
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  if (iso === h) return 'Hoy — ' + dias[d.getDay()] + ' ' + d.getDate() + ' ' + meses[d.getMonth()];
-  if (iso === mananaISO) return 'Mañana — ' + dias[d.getDay()] + ' ' + d.getDate() + ' ' + meses[d.getMonth()];
-  if (iso === ayerISO) return 'Ayer — ' + dias[d.getDay()] + ' ' + d.getDate() + ' ' + meses[d.getMonth()];
-  return dias[d.getDay()] + ' ' + d.getDate() + ' de ' + meses[d.getMonth()] + ' ' + d.getFullYear();
+  const diasN = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  if (iso===hoy()) return 'Hoy — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
+  if (iso===manana.toISOString().slice(0,10)) return 'Mañana — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
+  if (iso===ayer.toISOString().slice(0,10)) return 'Ayer — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
+  return diasN[d.getDay()]+' '+d.getDate()+' de '+meses[d.getMonth()]+' '+d.getFullYear();
 }
+
+function contarCitas(iso) { return CITAS.filter(c=>c.fecha===iso).length; }
+
+/* ---- Barra sáb/dom reutilizable ---- */
+function renderBarraDias(navId, fechaActual, fnSelDia, fnSemana) {
+  const navEl = document.getElementById(navId);
+  if (!navEl) return;
+  const dias = getSabDom(semOffset);
+  const esHoyVisible = semOffset === 0;
+  navEl.innerHTML = `
+    <div style="background:white;border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <button class="btn btn-sm" onclick="${fnSemana}(-1)"><i class="ti ti-chevron-left"></i></button>
+        <span style="font-size:12px;font-weight:500;color:var(--text-sec)">${getMesLabel(semOffset)}</span>
+        <button class="btn btn-sm" onclick="${fnSemana}(1)"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        ${dias.map(d=>`
+          <button onclick="${fnSelDia}('${d.iso}')"
+            style="padding:10px 8px;border-radius:9px;
+              border:${d.iso===fechaActual?'2px solid var(--g)':'.5px solid var(--border)'};
+              background:${d.iso===fechaActual?'var(--gl)':d.esHoy?'var(--aul)':'white'};
+              cursor:pointer;text-align:center;transition:all .15s;">
+            <div style="font-size:11px;font-weight:500;color:${d.iso===fechaActual?'var(--g)':d.esHoy?'var(--aud)':'var(--text-sec)'};">${d.diaNombre}</div>
+            <div style="font-size:20px;font-weight:600;color:${d.iso===fechaActual?'var(--g)':d.esHoy?'var(--aud)':'var(--text)'};line-height:1.2;">${d.diaNum}</div>
+            <div style="font-size:10px;color:var(--text-ter);">${d.mes}</div>
+            ${d.esHoy?'<div style="font-size:9px;color:var(--aud);font-weight:600;margin-top:2px">Hoy</div>':''}
+            <div style="font-size:9px;margin-top:5px;padding:2px 6px;border-radius:6px;display:inline-block;
+              background:${contarCitas(d.iso)>0?'var(--gl)':'var(--bg-sec)'};
+              color:${contarCitas(d.iso)>0?'var(--g)':'var(--text-ter)'};">
+              ${contarCitas(d.iso)} cita${contarCitas(d.iso)!==1?'s':''}
+            </div>
+          </button>`).join('')}
+      </div>
+      ${!esHoyVisible?`<div style="text-align:center;margin-top:10px">
+        <button class="btn btn-sm btn-g" onclick="semOffset=0;${fnSelDia}('${hoy()}')">
+          <i class="ti ti-calendar-event"></i> Ir a hoy
+        </button></div>`:''}
+    </div>`;
+}
+
+/* ---- Agenda ---- */
+function selAgendaDia(iso) { agendaFecha = iso; renderAgenda(); }
+function cambiarSemAgenda(dir) { semOffset += dir; renderAgenda(); }
 
 function renderAgenda() {
   const fecha = agendaFecha;
   const esHoy = fecha === hoy();
+  renderBarraDias('agenda-nav', fecha, 'selAgendaDia', 'cambiarSemAgenda');
   const citasF = CITAS.filter(c=>c.fecha===fecha).sort((a,b)=>a.hora>b.hora?1:-1);
-
-  // Actualizar navegación de fecha
-  const navEl = document.getElementById('agenda-nav');
-  if (navEl) {
-    navEl.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="btn btn-sm" onclick="agendaCambiarDia(-1)"><i class="ti ti-chevron-left"></i></button>
-        <span style="font-size:13px;font-weight:500;color:var(--text);flex:1;text-align:center;min-width:160px">${fmtFechaAgenda(fecha)}</span>
-        <button class="btn btn-sm" onclick="agendaCambiarDia(1)"><i class="ti ti-chevron-right"></i></button>
-        ${!esHoy ? `<button class="btn btn-sm btn-g" onclick="agendaIrHoy()"><i class="ti ti-calendar-event"></i> Hoy</button>` : ''}
-        <input type="date" class="fi" value="${fecha}" onchange="agendaFecha=this.value;renderAgenda()" style="width:auto;font-size:12px;padding:5px 8px">
-      </div>`;
-  }
-
-  // Stats
   document.getElementById('ag-porllevar').textContent = citasF.filter(c=>c.estado==='Pendiente').length;
   document.getElementById('ag-consulta').textContent  = citasF.filter(c=>c.estado==='Llegó').length;
   document.getElementById('ag-cobrar').textContent    = fmtM(citasF.filter(c=>c.estado==='Atendida').length*400);
   document.getElementById('ag-term').textContent      = citasF.filter(c=>c.estado==='Atendida'||c.estado==='Pagado').length;
-
   const wrap = document.getElementById('agenda-lista');
   if (!citasF.length) {
-    wrap.innerHTML = `<div class="empty"><i class="ti ti-calendar-off"></i>Sin citas para ${esHoy?'hoy':fmtFechaAgenda(fecha)}<br><span style="font-size:11px;margin-top:6px;display:block"><button class="btn btn-sm btn-g" onclick="om('ncita')" style="margin-top:8px"><i class="ti ti-plus"></i> Agendar cita</button></span></div>`;
+    wrap.innerHTML = `<div class="empty"><i class="ti ti-calendar-off"></i>Sin citas para ${esHoy?'hoy':fmtFechaAgenda(fecha)}<br><button class="btn btn-sm btn-g" onclick="om('ncita')" style="margin-top:10px"><i class="ti ti-plus"></i> Agendar cita</button></div>`;
     return;
   }
-
   const am = citasF.filter(c=>c.hora<'13:00');
   const pm = citasF.filter(c=>c.hora>='13:00');
   let html = '';
   if (am.length) { html += '<div class="hora-sep">Mañana</div>'; am.forEach(c=>{html+=renderCitaCard(c);}); }
   if (pm.length) { html += '<div class="hora-sep" style="margin-top:14px">Tarde</div>'; pm.forEach(c=>{html+=renderCitaCard(c);}); }
   wrap.innerHTML = html;
+}
+
+/* ---- Caja ---- */
+function selCajaDia(iso) { cajaFecha = iso; renderCaja(); }
+function cambiarSemCaja(dir) { semOffset += dir; renderCaja(); }
+
+function renderCaja() {
+  const fecha = cajaFecha;
+  const esHoy = fecha === hoy();
+  renderBarraDias('caja-nav', fecha, 'selCajaDia', 'cambiarSemCaja');
+  const cobF = COBROS.filter(c=>c.fecha===fecha);
+  const totalF = cobF.reduce((s,c)=>s+c.monto,0);
+  const pendF = CITAS.filter(c=>c.fecha===fecha&&c.estado==='Pendiente').length;
+  const lbl = document.getElementById('cj-hoy-lbl');
+  if (lbl) lbl.textContent = esHoy ? 'Cobrado hoy' : fmtFechaAgenda(fecha).split(' — ')[0];
+  document.getElementById('cj-hoy').textContent = fmtM(totalF);
+  document.getElementById('cj-hoy-n').textContent = cobF.length+' cobros';
+  document.getElementById('cj-pend').textContent = fmtM(pendF*400);
+  const d=new Date(); const lun=new Date(d); lun.setDate(d.getDate()-d.getDay()+1);
+  document.getElementById('cj-sem').textContent=fmtM(COBROS.filter(c=>c.fecha>=lun.toISOString().slice(0,10)).reduce((s,c)=>s+c.monto,0));
+  document.getElementById('cj-mes').textContent=fmtM(COBROS.filter(c=>c.fecha.startsWith(hoy().slice(0,7))).reduce((s,c)=>s+c.monto,0));
+  const tb=document.getElementById('tb-caja');
+  tb.innerHTML=cobF.length
+    ?cobF.map(c=>`<tr><td>${c.hora}</td><td>${c.pac_nombre}</td><td class="hide-sm">${c.serv}</td><td>${fmtM(c.monto)}</td><td class="hide-sm"><span style="background:var(--gl);color:var(--g);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:500">${c.met}</span></td><td class="hide-sm" style="font-size:11px;color:var(--text-sec)">${esAdmin()?c.doctor_nombre||'—':''}</td><td><button class="ra" onclick='generarTicket(${JSON.stringify(c)});om("ticket")'><i class="ti ti-printer"></i></button></td></tr>`).join('')
+    :`<tr><td colspan="7"><div class="empty"><i class="ti ti-receipt-off"></i>Sin cobros para ${esHoy?'hoy':fmtFechaAgenda(fecha)}</div></td></tr>`;
 }
 
 function renderCitaCard(cita) {
@@ -459,23 +522,7 @@ function abrirSOAPpaciente(pacId,nombre) {
 }
 
 /* ============ CAJA ============ */
-function renderCaja() {
-  const h=hoy();
-  const cobH=COBROS.filter(c=>c.fecha===h);
-  const totalH=cobH.reduce((s,c)=>s+c.monto,0);
-  const pendH=CITAS.filter(c=>c.fecha===h&&c.estado==='Pendiente').length;
-  document.getElementById('cj-hoy').textContent=fmtM(totalH);
-  document.getElementById('cj-hoy-n').textContent=cobH.length+' cobros';
-  document.getElementById('cj-pend').textContent=fmtM(pendH*400);
-  const d=new Date();const lun=new Date(d);lun.setDate(d.getDate()-d.getDay()+1);
-  document.getElementById('cj-sem').textContent=fmtM(COBROS.filter(c=>c.fecha>=lun.toISOString().slice(0,10)).reduce((s,c)=>s+c.monto,0));
-  document.getElementById('cj-mes').textContent=fmtM(COBROS.filter(c=>c.fecha.startsWith(h.slice(0,7))).reduce((s,c)=>s+c.monto,0));
-  const tb=document.getElementById('tb-caja');
-  tb.innerHTML=cobH.length
-    ?cobH.map(c=>`<tr><td>${c.hora}</td><td>${c.pac_nombre}</td><td class="hide-sm">${c.serv}</td><td>${fmtM(c.monto)}</td><td class="hide-sm"><span style="background:var(--gl);color:var(--g);padding:2px 8px;border-radius:8px;font-size:10px;font-weight:500">${c.met}</span></td><td class="hide-sm" style="font-size:11px;color:var(--text-sec)">${esAdmin()?c.doctor_nombre||'—':''}</td><td><button class="ra" onclick='generarTicket(${JSON.stringify(c)});om("ticket")'><i class="ti ti-printer"></i></button></td></tr>`).join('')
-    :`<tr><td colspan="7"><div class="empty"><i class="ti ti-receipt-off"></i>Sin cobros hoy</div></td></tr>`;
-}
-
+/* ============ CAJA — navegación por días ============ */
 /* ============ REPORTES ============ */
 function toggleRango(){document.getElementById('rep-rango').style.display=document.getElementById('rep-periodo').value==='rango'?'flex':'none';}
 function getRango(){
