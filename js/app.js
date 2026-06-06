@@ -616,17 +616,21 @@ function renderAdmin(){
   const diasEl = document.getElementById('admin-dias');
   if(!diasEl) return;
 
-  // Generar próximos 8 sáb/dom
+  // Próximos 8 sáb/dom — fecha local (no UTC)
   const proxDias = [];
   const hoyD = new Date();
-  for(let i=0; i<56; i++){
+  const hoyLocal = hoyD.getFullYear()+'-'+String(hoyD.getMonth()+1).padStart(2,'0')+'-'+String(hoyD.getDate()).padStart(2,'0');
+  for(let i=0;i<60;i++){
     const d = new Date(hoyD); d.setDate(hoyD.getDate()+i);
-    if(d.getDay()===0||d.getDay()===6){
-      const iso = d.toISOString().slice(0,10);
+    const dow = d.getDay();
+    if(dow===0||dow===6){
+      const iso = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       proxDias.push(iso);
       if(proxDias.length>=8) break;
     }
   }
+
+  if(!proxDias.length){ diasEl.innerHTML='<div class="empty">Sin días disponibles</div>'; return; }
 
   const meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const diasN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -635,33 +639,29 @@ function renderAdmin(){
     const d = new Date(iso+'T12:00:00');
     const bloq = DIAS_BLOQUEADOS.find(b=>b.fecha===iso);
     const numCitas = CITAS.filter(c=>c.fecha===iso).length;
-    return `
-      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:.5px solid var(--border);">
-        <div style="text-align:center;min-width:48px;">
-          <div style="font-size:10px;font-weight:500;color:var(--text-ter)">${diasN[d.getDay()]}</div>
-          <div style="font-size:18px;font-weight:600;color:${bloq?'#A32D2D':iso===hoy()?'var(--aud)':'var(--text)'}">${d.getDate()}</div>
-          <div style="font-size:10px;color:var(--text-ter)">${meses[d.getMonth()]}</div>
-        </div>
-        <div style="flex:1">
-          ${bloq
-            ? `<span style="background:#FCEBEB;color:#A32D2D;font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500">🔒 Bloqueado</span>
-               <div style="font-size:11px;color:var(--text-ter);margin-top:2px">${bloq.motivo||'Sin motivo'}</div>`
-            : `<span style="background:var(--gl);color:var(--g);font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500">✓ Disponible</span>
-               <div style="font-size:11px;color:var(--text-ter);margin-top:2px">${numCitas} cita${numCitas!==1?'s':''} agendada${numCitas!==1?'s':''}</div>`
-          }
-        </div>
+    const esHoy = iso===hoyLocal;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:.5px solid var(--border);">
+      <div style="text-align:center;min-width:52px;">
+        <div style="font-size:10px;font-weight:600;color:var(--text-ter);text-transform:uppercase">${diasN[d.getDay()]}</div>
+        <div style="font-size:22px;font-weight:600;line-height:1.1;color:${bloq?'#A32D2D':esHoy?'var(--aud)':'var(--text)'}">${d.getDate()}</div>
+        <div style="font-size:10px;color:var(--text-ter)">${meses[d.getMonth()]}</div>
+        ${esHoy?'<div style="font-size:9px;color:var(--aud);font-weight:600">HOY</div>':''}
+      </div>
+      <div style="flex:1">
         ${bloq
-          ? `<button class="btn btn-sm" style="color:var(--g);border-color:var(--g)" onclick="desbloquearDia('${iso}','${bloq.id}')">
-               <i class="ti ti-lock-open"></i> Abrir
-             </button>`
-          : `<button class="btn btn-sm" style="color:#A32D2D;border-color:#E24B4A" onclick="bloquearDia('${iso}')">
-               <i class="ti ti-lock"></i> Bloquear
-             </button>`
+          ? `<span style="background:#FCEBEB;color:#A32D2D;font-size:11px;padding:3px 10px;border-radius:8px;font-weight:500">🔒 Bloqueado</span>
+             <div style="font-size:11px;color:var(--text-ter);margin-top:3px">${bloq.motivo||'Sin motivo'}</div>`
+          : `<span style="background:var(--gl);color:var(--g);font-size:11px;padding:3px 10px;border-radius:8px;font-weight:500">✓ Disponible</span>
+             <div style="font-size:11px;color:var(--text-ter);margin-top:3px">${numCitas} cita${numCitas!==1?'s':''} agendada${numCitas!==1?'s':''}</div>`
         }
-      </div>`;
+      </div>
+      ${bloq
+        ? `<button class="btn btn-sm" style="color:var(--g);border-color:var(--g);white-space:nowrap" onclick="desbloquearDia('${iso}','${bloq.id}')"><i class="ti ti-lock-open"></i> Desbloquear</button>`
+        : `<button class="btn btn-sm" style="color:#A32D2D;border-color:#E24B4A;white-space:nowrap" onclick="bloquearDia('${iso}')"><i class="ti ti-lock"></i> Bloquear</button>`
+      }
+    </div>`;
   }).join('');
 }
-
 async function bloquearDia(fecha) {
   const motivo = prompt(`Motivo para bloquear ${fmtF(fecha)} (opcional):`);
   if(motivo === null) return; // canceló
