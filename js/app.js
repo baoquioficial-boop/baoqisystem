@@ -4,15 +4,12 @@
    admin ve todo. Sin UI de roles visible.
    ============================================= */
 
-let PACS = [], CITAS = [], COBROS = [], NOTAS = [];
+let PACS = [], CITAS = [], COBROS = [], NOTAS = [], DIAS_BLOQUEADOS = [];
 let citaActual = null;
 
 /* ============ UTILIDADES ============ */
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
-// Convierte Date a 'YYYY-MM-DD' usando zona horaria LOCAL (no UTC)
-// Esto evita el bug de que toISOString() retroceda/adelante un día en TZ negativas
-function toLocalISO(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
-function hoy() { return toLocalISO(new Date()); }
+function hoy() { return new Date().toISOString().slice(0,10); }
 function fmtF(iso) { if(!iso) return '—'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
 function fmtM(n) { return '$'+Number(n).toLocaleString('es-MX'); }
 function ini2(n) { const p=n.trim().split(' '); return (p[0]?.[0]||'')+(p[1]?.[0]||p[0]?.[1]||''); }
@@ -39,11 +36,12 @@ function qPacientes() {
 /* ============ CARGA CON FILTRO ============ */
 async function cargarTodo() {
   try {
-    [PACS, CITAS, COBROS, NOTAS] = await Promise.all([
+    [PACS, CITAS, COBROS, NOTAS, DIAS_BLOQUEADOS] = await Promise.all([
       sb('pacientes','GET',null,`?order=created_at.desc${qPacientes()}`),
       sb('citas','GET',null,`?order=fecha.asc,hora.asc${qDoctor()}`),
       sb('cobros','GET',null,`?order=created_at.desc${qDoctor()}`),
       sb('notas_soap','GET',null,`?order=created_at.desc${qDoctor()}`),
+      sb('dias_bloqueados','GET',null,'?order=fecha.asc'),
     ]);
     // Admin: mostrar filtro por doctor en reportes
     const filtroDocEl = document.getElementById('rep-doctor-fil');
@@ -134,6 +132,16 @@ async function guardarCitaSimple() {
   const tel=document.getElementById('nc-tel').value.trim();
   const fecha=document.getElementById('nc-fecha').value;
   if(!nombre||!fecha){toast('⚠ Nombre y fecha son obligatorios');return;}
+
+  // ✅ Solo sábado (6) o domingo (0)
+  const _diaSem = new Date(fecha+'T12:00:00').getDay();
+  if(_diaSem!==0 && _diaSem!==6){
+    toast('⚠ Solo se atiende sábados y domingos');return;
+  }
+  // ✅ Verificar que no esté bloqueado
+  const _bloq = DIAS_BLOQUEADOS.find(d=>d.fecha===fecha);
+  if(_bloq){ toast('⚠ Día bloqueado: '+(_bloq.motivo||'No disponible')); return; }
+
 
   const doctorId=document.getElementById('nc-doctor')?.value||doctorActual.id;
   const doctorNombre=DOCS.find(d=>d.id===doctorId)?.nombre||doctorActual.nombre;
@@ -322,7 +330,7 @@ function getSabDom(weekOffset) {
   return [5, 6].map(offset => {
     const d = new Date(lunes);
     d.setDate(lunes.getDate() + offset);
-    const iso = toLocalISO(d);
+    const iso = d.toISOString().slice(0, 10);
     const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
     const nombres = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     return { iso, diaNombre: nombres[d.getDay()], diaNum: d.getDate(), mes: meses[d.getMonth()], esHoy: iso === hoy() };
@@ -343,8 +351,8 @@ function fmtFechaAgenda(iso) {
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const diasN = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   if (iso===hoy()) return 'Hoy — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
-  if (iso===toLocalISO(manana)) return 'Mañana — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
-  if (iso===toLocalISO(ayer)) return 'Ayer — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
+  if (iso===manana.toISOString().slice(0,10)) return 'Mañana — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
+  if (iso===ayer.toISOString().slice(0,10)) return 'Ayer — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
   return diasN[d.getDay()]+' '+d.getDate()+' de '+meses[d.getMonth()]+' '+d.getFullYear();
 }
 
@@ -375,9 +383,9 @@ function renderBarraDias(navId, fechaActual, fnSelDia, fnSemana) {
             <div style="font-size:10px;color:var(--text-ter);">${d.mes}</div>
             ${d.esHoy?'<div style="font-size:9px;color:var(--aud);font-weight:600;margin-top:2px">Hoy</div>':''}
             <div style="font-size:9px;margin-top:5px;padding:2px 6px;border-radius:6px;display:inline-block;
-              background:${contarCitas(d.iso)>0?'var(--gl)':'var(--bg-sec)'};
-              color:${contarCitas(d.iso)>0?'var(--g)':'var(--text-ter)'};">
-              ${contarCitas(d.iso)} cita${contarCitas(d.iso)!==1?'s':''}
+              background:${DIAS_BLOQUEADOS.find(b=>b.fecha===d.iso)?'#FCEBEB':contarCitas(d.iso)>0?'var(--gl)':'var(--bg-sec)'};
+              color:${DIAS_BLOQUEADOS.find(b=>b.fecha===d.iso)?'#A32D2D':contarCitas(d.iso)>0?'var(--g)':'var(--text-ter)'};">
+              ${DIAS_BLOQUEADOS.find(b=>b.fecha===d.iso)?'🔒 Bloqueado':contarCitas(d.iso)+' cita'+(contarCitas(d.iso)!==1?'s':'')}
             </div>
           </button>`).join('')}
       </div>
@@ -431,7 +439,7 @@ function renderCaja() {
   document.getElementById('cj-hoy-n').textContent = cobF.length+' cobros';
   document.getElementById('cj-pend').textContent = fmtM(pendF*400);
   const d=new Date(); const lun=new Date(d); lun.setDate(d.getDate()-d.getDay()+1);
-  document.getElementById('cj-sem').textContent=fmtM(COBROS.filter(c=>c.fecha>=toLocalISO(lun)).reduce((s,c)=>s+c.monto,0));
+  document.getElementById('cj-sem').textContent=fmtM(COBROS.filter(c=>c.fecha>=lun.toISOString().slice(0,10)).reduce((s,c)=>s+c.monto,0));
   document.getElementById('cj-mes').textContent=fmtM(COBROS.filter(c=>c.fecha.startsWith(hoy().slice(0,7))).reduce((s,c)=>s+c.monto,0));
   const tb=document.getElementById('tb-caja');
   tb.innerHTML=cobF.length
@@ -531,7 +539,7 @@ function toggleRango(){document.getElementById('rep-rango').style.display=docume
 function getRango(){
   const per=document.getElementById('rep-periodo').value;const h=hoy();const d=new Date();
   let desde=h,hasta=h;
-  if(per==='semana'){const l=new Date(d);l.setDate(d.getDate()-d.getDay()+1);desde=toLocalISO(l);}
+  if(per==='semana'){const l=new Date(d);l.setDate(d.getDate()-d.getDay()+1);desde=l.toISOString().slice(0,10);}
   else if(per==='mes'){desde=h.slice(0,7)+'-01';}
   else if(per==='rango'){desde=document.getElementById('rep-desde').value||h;hasta=document.getElementById('rep-hasta').value||h;}
   return{desde,hasta};
@@ -586,7 +594,9 @@ function renderExp(){
 }
 
 /* ============ ADMIN ============ */
+/* ============ ADMIN ============ */
 function renderAdmin(){
+  // Sección doctores
   document.getElementById('doc-grid').innerHTML=DOCS.map(d=>`
     <div class="doc-card">
       <div class="doc-card-av ${d.rol==='admin'?'admin':''}">${ini2(d.nombre)}</div>
@@ -601,4 +611,77 @@ function renderAdmin(){
         </div>
       </div>
     </div>`).join('');
+
+  // Sección días bloqueados
+  const diasEl = document.getElementById('admin-dias');
+  if(!diasEl) return;
+
+  // Generar próximos 8 sáb/dom
+  const proxDias = [];
+  const hoyD = new Date();
+  for(let i=0; i<56; i++){
+    const d = new Date(hoyD); d.setDate(hoyD.getDate()+i);
+    if(d.getDay()===0||d.getDay()===6){
+      const iso = d.toISOString().slice(0,10);
+      proxDias.push(iso);
+      if(proxDias.length>=8) break;
+    }
+  }
+
+  const meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const diasN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+  diasEl.innerHTML = proxDias.map(iso=>{
+    const d = new Date(iso+'T12:00:00');
+    const bloq = DIAS_BLOQUEADOS.find(b=>b.fecha===iso);
+    const numCitas = CITAS.filter(c=>c.fecha===iso).length;
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:.5px solid var(--border);">
+        <div style="text-align:center;min-width:48px;">
+          <div style="font-size:10px;font-weight:500;color:var(--text-ter)">${diasN[d.getDay()]}</div>
+          <div style="font-size:18px;font-weight:600;color:${bloq?'#A32D2D':iso===hoy()?'var(--aud)':'var(--text)'}">${d.getDate()}</div>
+          <div style="font-size:10px;color:var(--text-ter)">${meses[d.getMonth()]}</div>
+        </div>
+        <div style="flex:1">
+          ${bloq
+            ? `<span style="background:#FCEBEB;color:#A32D2D;font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500">🔒 Bloqueado</span>
+               <div style="font-size:11px;color:var(--text-ter);margin-top:2px">${bloq.motivo||'Sin motivo'}</div>`
+            : `<span style="background:var(--gl);color:var(--g);font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500">✓ Disponible</span>
+               <div style="font-size:11px;color:var(--text-ter);margin-top:2px">${numCitas} cita${numCitas!==1?'s':''} agendada${numCitas!==1?'s':''}</div>`
+          }
+        </div>
+        ${bloq
+          ? `<button class="btn btn-sm" style="color:var(--g);border-color:var(--g)" onclick="desbloquearDia('${iso}','${bloq.id}')">
+               <i class="ti ti-lock-open"></i> Abrir
+             </button>`
+          : `<button class="btn btn-sm" style="color:#A32D2D;border-color:#E24B4A" onclick="bloquearDia('${iso}')">
+               <i class="ti ti-lock"></i> Bloquear
+             </button>`
+        }
+      </div>`;
+  }).join('');
+}
+
+async function bloquearDia(fecha) {
+  const motivo = prompt(`Motivo para bloquear ${fmtF(fecha)} (opcional):`);
+  if(motivo === null) return; // canceló
+  const reg = {id:uid(), fecha, motivo: motivo||'', creado_por: doctorActual.nombre};
+  try {
+    await sb('dias_bloqueados','POST',reg);
+    DIAS_BLOQUEADOS.push(reg);
+    renderAdmin();
+    renderBarraDias('agenda-nav', agendaFecha, 'selAgendaDia', 'cambiarSemAgenda');
+    toast('✓ Día bloqueado: '+fmtF(fecha));
+  } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+async function desbloquearDia(fecha, id) {
+  if(!confirm('¿Desbloquear '+fmtF(fecha)+'?')) return;
+  try {
+    await sb('dias_bloqueados','DELETE',null,`?id=eq.${id}`);
+    DIAS_BLOQUEADOS = DIAS_BLOQUEADOS.filter(d=>d.id!==id);
+    renderAdmin();
+    renderBarraDias('agenda-nav', agendaFecha, 'selAgendaDia', 'cambiarSemAgenda');
+    toast('✓ Día desbloqueado');
+  } catch(e){ toast('⚠ Error: '+e.message); }
 }
