@@ -85,7 +85,7 @@ function gp(page,el) {
 
 function om(id) {
   document.getElementById('m-'+id).classList.add('op');
-  if(id==='cobrar') poblarSelectCobro();
+  if(id==='cobrar') { poblarSelectCobro(); actualizarMonto(); }
   if(id==='ncita') { document.getElementById('nc-fecha').value=agendaFecha||hoy(); poblarSelectDoctor(); }
 }
 function cm(id) { document.getElementById('m-'+id).classList.remove('op'); }
