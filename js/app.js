@@ -121,9 +121,9 @@ function poblarSelectCobro() {
 }
 
 function actualizarMonto() {
-  const v=document.getElementById('cob-serv').value;
-  document.getElementById('cob-monto').value=fmtM(v);
-  document.getElementById('cob-total').textContent=fmtM(v);
+  const v = document.getElementById('cob-serv').value;
+  document.getElementById('cob-monto').value = fmtM(v);
+  document.getElementById('cob-total').textContent = fmtM(v);
 }
 
 /* ============ NUEVA CITA SIMPLE ============ */

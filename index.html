@@ -525,7 +525,7 @@
     <div class="mh"><span class="mht"><i class="ti ti-cash" style="color:#C9971C;margin-right:5px"></i>Registrar cobro</span><button class="mx" onclick="cm('cobrar')"><i class="ti ti-x"></i></button></div>
     <div class="mb">
       <div class="fr1"><div class="fg"><label class="fl">Paciente</label><select class="fs" id="cob-pac"></select></div></div>
-      <div class="fr"><div class="fg"><label class="fl">Servicio</label><select class="fs" id="cob-serv" onchange="actualizarMonto()"><option value="400">Primera vez — $400</option><option value="650">Sesión subsecuente — $650</option><option value="2800">Paquete 5 sesiones — $2,800</option></select></div><div class="fg"><label class="fl">Monto</label><input class="fi" id="cob-monto" type="text" value="$400"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">Servicio</label><select class="fs" id="cob-serv" onchange="actualizarMonto()"><option value="300">Promoción — $300</option><option value="400">Precio normal — $400</option></select></div><div class="fg"><label class="fl">Monto</label><input class="fi" id="cob-monto" type="text" value="$300"></div></div>
       <div class="sep">Método de pago</div>
       <div class="met-g"><div class="met on" onclick="sm(this)" data-met="Efectivo"><i class="ti ti-cash"></i>Efectivo</div><div class="met" onclick="sm(this)" data-met="Tarjeta"><i class="ti ti-credit-card"></i>Tarjeta</div><div class="met" onclick="sm(this)" data-met="Transferencia"><i class="ti ti-transfer"></i>Transferencia</div></div>
       <div class="ctot"><span class="cl">Total a cobrar</span><span class="ca" id="cob-total">$400</span></div>
