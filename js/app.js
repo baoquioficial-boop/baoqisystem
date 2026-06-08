@@ -9,7 +9,14 @@ let citaActual = null;
 
 /* ============ UTILIDADES ============ */
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
-function hoy() { return new Date().toISOString().slice(0,10); }
+function hoy() {
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// Convierte un objeto Date a 'YYYY-MM-DD' en zona LOCAL (no UTC)
+function fechaLocal(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function fmtF(iso) { if(!iso) return '—'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
 function fmtM(n) { return '$'+Number(n).toLocaleString('es-MX'); }
 function ini2(n) { const p=n.trim().split(' '); return (p[0]?.[0]||'')+(p[1]?.[0]||p[0]?.[1]||''); }
@@ -330,7 +337,7 @@ function getSabDom(weekOffset) {
   return [5, 6].map(offset => {
     const d = new Date(lunes);
     d.setDate(lunes.getDate() + offset);
-    const iso = d.toISOString().slice(0, 10);
+    const iso = fechaLocal(d);
     const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
     const nombres = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     return { iso, diaNombre: nombres[d.getDay()], diaNum: d.getDate(), mes: meses[d.getMonth()], esHoy: iso === hoy() };
@@ -351,8 +358,8 @@ function fmtFechaAgenda(iso) {
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const diasN = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   if (iso===hoy()) return 'Hoy — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
-  if (iso===manana.toISOString().slice(0,10)) return 'Mañana — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
-  if (iso===ayer.toISOString().slice(0,10)) return 'Ayer — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
+  if (iso===fechaLocal(manana)) return 'Mañana — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
+  if (iso===fechaLocal(ayer)) return 'Ayer — '+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()];
   return diasN[d.getDay()]+' '+d.getDate()+' de '+meses[d.getMonth()]+' '+d.getFullYear();
 }
 
@@ -439,7 +446,7 @@ function renderCaja() {
   document.getElementById('cj-hoy-n').textContent = cobF.length+' cobros';
   document.getElementById('cj-pend').textContent = fmtM(pendF*400);
   const d=new Date(); const lun=new Date(d); lun.setDate(d.getDate()-d.getDay()+1);
-  document.getElementById('cj-sem').textContent=fmtM(COBROS.filter(c=>c.fecha>=lun.toISOString().slice(0,10)).reduce((s,c)=>s+c.monto,0));
+  document.getElementById('cj-sem').textContent=fmtM(COBROS.filter(c=>c.fecha>=fechaLocal(lun)).reduce((s,c)=>s+c.monto,0));
   document.getElementById('cj-mes').textContent=fmtM(COBROS.filter(c=>c.fecha.startsWith(hoy().slice(0,7))).reduce((s,c)=>s+c.monto,0));
   const tb=document.getElementById('tb-caja');
   tb.innerHTML=cobF.length
@@ -539,7 +546,7 @@ function toggleRango(){document.getElementById('rep-rango').style.display=docume
 function getRango(){
   const per=document.getElementById('rep-periodo').value;const h=hoy();const d=new Date();
   let desde=h,hasta=h;
-  if(per==='semana'){const l=new Date(d);l.setDate(d.getDate()-d.getDay()+1);desde=l.toISOString().slice(0,10);}
+  if(per==='semana'){const l=new Date(d);l.setDate(d.getDate()-d.getDay()+1);desde=fechaLocal(l);}
   else if(per==='mes'){desde=h.slice(0,7)+'-01';}
   else if(per==='rango'){desde=document.getElementById('rep-desde').value||h;hasta=document.getElementById('rep-hasta').value||h;}
   return{desde,hasta};
