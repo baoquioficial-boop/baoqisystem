@@ -29,16 +29,10 @@ function toast(msg) {
 /* ============ FILTROS POR ROL ============ */
 function esAdmin() { return doctorActual?.rol === 'admin'; }
 
-// Query filter para citas y cobros según rol
-function qDoctor() {
-  if (esAdmin()) return '';
-  return `&doctor_id=eq.${doctorActual.id}`;
-}
-// Query filter para pacientes según rol
-function qPacientes() {
-  if (esAdmin()) return '';
-  return `&doctor_id=eq.${doctorActual.id}`;
-}
+// Centro de un solo doctor: todos ven todas las citas y pacientes.
+// (Si en el futuro se agregan mas doctores, reactivar el filtro por doctor_id.)
+function qDoctor() { return ''; }
+function qPacientes() { return ''; }
 
 /* ============ CARGA CON FILTRO ============ */
 async function cargarTodo() {
@@ -153,10 +147,17 @@ async function guardarCitaSimple() {
   const doctorId=document.getElementById('nc-doctor')?.value||doctorActual.id;
   const doctorNombre=DOCS.find(d=>d.id===doctorId)?.nombre||doctorActual.nombre;
 
-  // Crear paciente básico si no existe
-  let pac=PACS.find(p=>p.nombre.toLowerCase()===nombre.toLowerCase()&&p.tel===tel);
+  // Buscar paciente existente — primero por teléfono normalizado, luego por nombre
+  const telNorm = (tel||'').replace(/[^0-9]/g,'').slice(-10);
+  let pac = null;
+  if (telNorm) {
+    pac = PACS.find(p => (p.tel||'').replace(/[^0-9]/g,'').slice(-10) === telNorm);
+  }
+  if (!pac) {
+    pac = PACS.find(p => p.nombre.toLowerCase().trim() === nombre.toLowerCase().trim());
+  }
   if(!pac) {
-    pac={id:uid(),nombre,tel,motivo:document.getElementById('nc-motivo').value,
+    pac={id:uid(),nombre,tel:telNorm,motivo:document.getElementById('nc-motivo').value,
       doctor_id:doctorId,fecha_reg:hoy()};
     try { await sb('pacientes','POST',pac); PACS.unshift(pac); }
     catch(e){toast('⚠ Error creando paciente: '+e.message);return;}
