@@ -58,8 +58,8 @@ async function cargarTodo() {
 
     actualizarBadges();
     renderAgenda();
-    // Cargar cursos solo si es admin
-    if (esAdmin()) cargarCursos();
+    // Cargar cursos y panel admin solo si es admin
+    if (esAdmin()) { cargarCursos(); cargarPanelAdmin(); }
   } catch(e) { toast('⚠ Error al cargar datos'); }
 }
 
@@ -76,7 +76,7 @@ function gp(page,el) {
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('pg-'+page).classList.add('on');
   el.classList.add('on');
-  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Administración',cursos:'Cursos'};
+  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA'};
   document.getElementById('ptit').textContent=t[page];
   if(page==='agenda') renderAgenda();
   if(page==='pac') renderPacs(PACS);
@@ -85,6 +85,12 @@ function gp(page,el) {
   if(page==='exp') renderExp();
   if(page==='admin') renderAdmin();
   if(page==='cursos') renderCursos();
+  if(page==='dashboard') renderDashboard();
+  if(page==='crm') renderCRM();
+  if(page==='inscripciones') renderInscripciones();
+  if(page==='comprobantes') renderComprobantes();
+  if(page==='promos') renderPromos();
+  if(page==='agente') renderConfigAgente();
 }
 
 function om(id) {
@@ -999,4 +1005,389 @@ function verInscritos(cursoId) {
       </div>`).join('');
   }
   om('inscritos');
+}
+
+/* ============================================================
+   PANEL DE ADMIN — Dashboard, CRM, Inscripciones,
+   Comprobantes, Promociones, Config Agente
+   ============================================================ */
+let COMPROBANTES = [], PROMOS = [], DASHBOARD = {}, compContactoSel = null;
+
+async function cargarPanelAdmin() {
+  if (!esAdmin()) return;
+  try {
+    const [comps, promos] = await Promise.all([
+      sb('comprobantes','GET',null,'?order=created_at.desc').catch(()=>[]),
+      sb('promociones','GET',null,'?order=created_at.desc').catch(()=>[]),
+    ]);
+    COMPROBANTES = comps||[];
+    PROMOS = promos||[];
+    const nbcrm = document.getElementById('nb-crm');
+    if (nbcrm) nbcrm.textContent = PACS.length;
+  } catch(e){}
+}
+
+/* ---- DASHBOARD ---- */
+async function renderDashboard() {
+  try {
+    const r = await sb('dashboard_resumen','POST',{},'');
+    DASHBOARD = Array.isArray(r) ? r[0]?.dashboard_resumen || r[0] : r;
+  } catch(e) {
+    // Fallback: calcular local
+    DASHBOARD = calcDashboardLocal();
+  }
+  if (!DASHBOARD || Object.keys(DASHBOARD).length===0) DASHBOARD = calcDashboardLocal();
+
+  const d = DASHBOARD;
+  document.getElementById('db-ing-mes').textContent = fmtM(d.ingresos_mes||0);
+  document.getElementById('db-ing-hoy').textContent = 'hoy: '+fmtM(d.ingresos_hoy||0);
+  document.getElementById('db-citas-mes').textContent = d.citas_mes||0;
+  document.getElementById('db-citas-hoy').textContent = (d.citas_hoy||0)+' hoy';
+  document.getElementById('db-pacientes').textContent = d.total_pacientes||0;
+  document.getElementById('db-pac-wa').textContent = (d.pacientes_whatsapp||0)+' por WhatsApp';
+  document.getElementById('db-anticipos').textContent = fmtM(d.anticipos_pendientes||0);
+  document.getElementById('db-wa-mes').textContent = d.citas_whatsapp_mes||0;
+  document.getElementById('db-manual-mes').textContent = d.citas_manual_mes||0;
+  document.getElementById('db-cursos').textContent = d.cursos_activos||0;
+  document.getElementById('db-insc-mes').textContent = (d.inscripciones_mes||0)+' inscripciones este mes';
+
+  // Barra de efectividad WhatsApp vs manual
+  const wa = d.citas_whatsapp_mes||0, man = d.citas_manual_mes||0, tot = wa+man;
+  const pctWa = tot>0 ? Math.round(wa/tot*100) : 0;
+  document.getElementById('db-agente-barra').innerHTML = tot===0
+    ? '<div style="font-size:12px;color:var(--text-ter)">Sin citas este mes todavía</div>'
+    : `<div style="display:flex;height:32px;border-radius:8px;overflow:hidden;font-size:11px;font-weight:600">
+        <div style="background:#25D366;color:white;width:${pctWa}%;display:flex;align-items:center;justify-content:center;min-width:${pctWa>0?'40px':'0'}">${pctWa>0?pctWa+'%':''}</div>
+        <div style="background:var(--g);color:white;width:${100-pctWa}%;display:flex;align-items:center;justify-content:center">${100-pctWa>0?(100-pctWa)+'%':''}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-sec);margin-top:6px">
+        <span>🟢 WhatsApp: ${wa} citas</span><span>Manual: ${man} citas</span>
+      </div>`;
+}
+
+function calcDashboardLocal() {
+  const h = hoy();
+  const mesIni = h.slice(0,7)+'-01';
+  const citasMes = CITAS.filter(c=>c.fecha>=mesIni && c.estado!=='Cancelada');
+  return {
+    citas_hoy: CITAS.filter(c=>c.fecha===h && c.estado!=='Cancelada').length,
+    citas_mes: citasMes.length,
+    citas_whatsapp_mes: citasMes.filter(c=>c.origen==='whatsapp').length,
+    citas_manual_mes: citasMes.filter(c=>c.origen!=='whatsapp').length,
+    ingresos_mes: COBROS.filter(c=>c.fecha>=mesIni).reduce((s,c)=>s+Number(c.monto||0),0),
+    ingresos_hoy: COBROS.filter(c=>c.fecha===h).reduce((s,c)=>s+Number(c.monto||0),0),
+    total_pacientes: PACS.length,
+    pacientes_whatsapp: PACS.filter(p=>p.origen==='whatsapp').length,
+    cursos_activos: (CURSOS||[]).filter(c=>c.activo).length,
+    inscripciones_mes: (INSCRIPCIONES||[]).filter(i=>i.estado!=='Cancelado').length,
+    anticipos_pendientes: (INSCRIPCIONES||[]).filter(i=>['Apartado','Cursando'].includes(i.estado)).reduce((s,i)=>s+Number(i.resto_pendiente||0),0),
+  };
+}
+
+/* ---- CRM ---- */
+function renderCRM() {
+  const tipo = document.getElementById('crm-filtro')?.value||'';
+  const origen = document.getElementById('crm-origen')?.value||'';
+  let lista = PACS.slice();
+  if (tipo) lista = lista.filter(p=>(p.tipo||'paciente')===tipo);
+  if (origen) lista = lista.filter(p=>(p.origen||'manual')===origen);
+  window._crmLista = lista;
+  pintarCRM(lista);
+}
+
+function pintarCRM(lista) {
+  const tb = document.getElementById('tb-crm');
+  if (!lista.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-address-book"></i>Sin contactos</div></td></tr>';return;}
+  tb.innerHTML = lista.map(p=>{
+    const nCitas = CITAS.filter(c=>c.pac_id===p.id).length;
+    const pagado = COBROS.filter(c=>c.pac_id===p.id).reduce((s,c)=>s+Number(c.monto||0),0);
+    const tipo = p.tipo||'paciente';
+    const tipoColor = tipo==='alumno'?'#185FA5':tipo==='prospecto'?'#A07812':'var(--g)';
+    const tipoBg = tipo==='alumno'?'#E6F1FB':tipo==='prospecto'?'var(--aul)':'var(--gl)';
+    const origen = p.origen||'manual';
+    return `<tr>
+      <td><div style="display:flex;align-items:center"><div class="av">${ini2(p.nombre)}</div>${p.nombre}</div></td>
+      <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${tipoBg};color:${tipoColor};text-transform:capitalize">${tipo}</span></td>
+      <td class="hide-sm">${origen==='whatsapp'?'<span style="color:#25D366">📱 WA</span>':'Manual'}</td>
+      <td class="hide-sm">${p.tel||'—'}</td>
+      <td>${nCitas}</td>
+      <td class="hide-sm">${fmtM(pagado)}</td>
+      <td><button class="ra" onclick="verContactoCRM('${p.id}')"><i class="ti ti-eye"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filtrarCRM(q) {
+  q=(q||'').toLowerCase();
+  const base = window._crmLista||PACS;
+  pintarCRM(base.filter(p=>p.nombre.toLowerCase().includes(q)||(p.tel||'').includes(q)));
+}
+
+function verContactoCRM(id) {
+  const p = PACS.find(x=>x.id===id); if(!p) return;
+  const nCitas = CITAS.filter(c=>c.pac_id===id).length;
+  const nInsc = (INSCRIPCIONES||[]).filter(i=>i.pac_id===id).length;
+  const pagado = COBROS.filter(c=>c.pac_id===id).reduce((s,c)=>s+Number(c.monto||0),0);
+  toast(`${p.nombre}: ${nCitas} citas, ${nInsc} cursos, ${fmtM(pagado)} pagado`);
+}
+
+/* ---- INSCRIPCIONES (vista admin global) ---- */
+function renderInscripciones() {
+  const activas = (INSCRIPCIONES||[]).filter(i=>i.estado!=='Cancelado');
+  document.getElementById('ins-total').textContent = activas.length;
+  document.getElementById('ins-anticipos').textContent = fmtM(activas.reduce((s,i)=>s+Number(i.anticipo_pagado||0),0));
+  document.getElementById('ins-pendiente').textContent = fmtM(activas.reduce((s,i)=>s+Number(i.resto_pendiente||0),0));
+  document.getElementById('ins-cursos').textContent = new Set(activas.map(i=>i.curso_id)).size;
+
+  const tb = document.getElementById('tb-inscripciones');
+  if(!(INSCRIPCIONES||[]).length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-clipboard-off"></i>Sin inscripciones</div></td></tr>';return;}
+  tb.innerHTML = INSCRIPCIONES.map(i=>{
+    const estBg = i.estado==='Pagado'?'var(--gl)':i.estado==='Cancelado'?'#FCEBEB':'var(--aul)';
+    const estColor = i.estado==='Pagado'?'var(--g)':i.estado==='Cancelado'?'#A32D2D':'var(--aud)';
+    return `<tr>
+      <td>${i.alumno_nombre}</td>
+      <td class="hide-sm">${i.curso_nombre||'—'}</td>
+      <td class="hide-sm">${i.origen==='whatsapp'?'<span style="color:#25D366">📱 WA</span>':'Manual'}</td>
+      <td>${fmtM(i.anticipo_pagado||0)}</td>
+      <td>${Number(i.resto_pendiente)>0?fmtM(i.resto_pendiente):'✓'}</td>
+      <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${estBg};color:${estColor}">${i.estado}</span></td>
+      <td><button class="ra" onclick="abonarInscripcion('${i.id}')" title="Registrar abono"><i class="ti ti-cash"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function abonarInscripcion(id) {
+  const i = (INSCRIPCIONES||[]).find(x=>x.id===id); if(!i) return;
+  const resto = Number(i.resto_pendiente||0);
+  if(resto<=0){toast('Esta inscripción ya está pagada');return;}
+  const abono = prompt(`Resto pendiente: ${fmtM(resto)}\n¿Cuánto abona ahora?`, resto);
+  if(abono===null) return;
+  const monto = parseFloat(abono)||0;
+  if(monto<=0) return;
+  const nuevoAnticipo = Number(i.anticipo_pagado||0)+monto;
+  const nuevoResto = Math.max(0, resto-monto);
+  const nuevoEstado = nuevoResto<=0 ? 'Pagado' : i.estado;
+  try {
+    await sb('inscripciones','PATCH',{anticipo_pagado:nuevoAnticipo,resto_pendiente:nuevoResto,estado:nuevoEstado},`?id=eq.${id}`);
+    i.anticipo_pagado=nuevoAnticipo; i.resto_pendiente=nuevoResto; i.estado=nuevoEstado;
+    renderInscripciones();
+    toast('✓ Abono registrado: '+fmtM(monto));
+  } catch(e){toast('⚠ Error: '+e.message);}
+}
+
+/* ---- COMPROBANTES ---- */
+function renderComprobantes() {
+  const tb = document.getElementById('tb-comprobantes');
+  if(!COMPROBANTES.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><i class="ti ti-receipt-off"></i>Sin comprobantes registrados</div></td></tr>';return;}
+  tb.innerHTML = COMPROBANTES.map(c=>{
+    const estBg=c.estado==='Verificado'?'var(--gl)':c.estado==='Rechazado'?'#FCEBEB':'var(--aul)';
+    const estColor=c.estado==='Verificado'?'var(--g)':c.estado==='Rechazado'?'#A32D2D':'var(--aud)';
+    return `<tr>
+      <td>${fmtF(c.fecha_pago)}</td>
+      <td>${c.pac_nombre||'—'}</td>
+      <td>${fmtM(c.monto||0)}</td>
+      <td class="hide-sm">${c.referencia||'—'}</td>
+      <td class="hide-sm">${c.banco||'—'}</td>
+      <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${estBg};color:${estColor}">${c.estado}</span></td>
+      <td style="white-space:nowrap">
+        ${c.estado!=='Verificado'?`<button class="ra" onclick="verificarComprobante('${c.id}',true)" title="Verificar" style="color:var(--g)"><i class="ti ti-check"></i></button>`:''}
+        ${c.imagen_url?`<button class="ra" onclick="verImagenComp('${c.id}')" title="Ver imagen"><i class="ti ti-photo"></i></button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirNuevoComprobante() {
+  compContactoSel=null;
+  ['comp-buscar','comp-nombre','comp-monto','comp-ref','comp-banco','comp-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('comp-fecha').value=hoy();
+  document.getElementById('comp-resultados').style.display='none';
+  om('comprobante');
+}
+
+function buscarContactoComp(q){
+  const cont=document.getElementById('comp-resultados');
+  q=(q||'').trim().toLowerCase();
+  if(q.length<2){cont.style.display='none';return;}
+  const res=PACS.filter(p=>p.nombre.toLowerCase().includes(q)||(p.tel||'').includes(q)).slice(0,6);
+  if(!res.length){cont.style.display='none';return;}
+  cont.innerHTML=res.map(p=>`<div onclick="selContactoComp('${p.id}')" style="padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--bg-sec)'" onmouseout="this.style.background='white'">${p.nombre}<div style="font-size:11px;color:var(--text-ter)">${p.tel||''}</div></div>`).join('');
+  cont.style.display='block';
+}
+function selContactoComp(id){
+  const p=PACS.find(x=>x.id===id);if(!p)return;
+  compContactoSel=p;
+  document.getElementById('comp-nombre').value=p.nombre;
+  document.getElementById('comp-resultados').style.display='none';
+  document.getElementById('comp-buscar').value='';
+}
+
+async function guardarComprobante() {
+  const nombre=document.getElementById('comp-nombre').value.trim();
+  const monto=parseFloat(document.getElementById('comp-monto').value)||0;
+  if(!nombre){toast('⚠ Indica el contacto');return;}
+  if(monto<=0){toast('⚠ El monto debe ser mayor a 0');return;}
+
+  const comp={
+    id:uid(),
+    pac_id:compContactoSel?.id||null,
+    pac_nombre:nombre,
+    tipo_registro:document.getElementById('comp-tipo').value,
+    monto,
+    fecha_pago:document.getElementById('comp-fecha').value,
+    referencia:document.getElementById('comp-ref').value,
+    banco:document.getElementById('comp-banco').value,
+    metodo:document.getElementById('comp-metodo').value,
+    estado:'Registrado',
+    notas:document.getElementById('comp-notas').value,
+    registrado_por:doctorActual?.nombre||''
+  };
+
+  // Imagen: convertir a base64 si hay
+  const fileInput=document.getElementById('comp-img');
+  if(fileInput && fileInput.files && fileInput.files[0]){
+    try {
+      comp.imagen_url = await new Promise((res,rej)=>{
+        const r=new FileReader();
+        r.onload=()=>res(r.result);
+        r.onerror=rej;
+        r.readAsDataURL(fileInput.files[0]);
+      });
+    } catch(e){}
+  }
+
+  try {
+    await sb('comprobantes','POST',comp);
+    COMPROBANTES.unshift(comp);
+    cm('comprobante'); renderComprobantes();
+    toast('✓ Comprobante registrado');
+  } catch(e){toast('⚠ Error: '+e.message);}
+}
+
+async function verificarComprobante(id,ok){
+  try {
+    await sb('comprobantes','PATCH',{estado:ok?'Verificado':'Rechazado'},`?id=eq.${id}`);
+    const c=COMPROBANTES.find(x=>x.id===id); if(c) c.estado=ok?'Verificado':'Rechazado';
+    renderComprobantes();
+    toast(ok?'✓ Comprobante verificado':'Comprobante rechazado');
+  } catch(e){toast('⚠ Error: '+e.message);}
+}
+
+function verImagenComp(id){
+  const c=COMPROBANTES.find(x=>x.id===id);
+  if(c&&c.imagen_url){
+    const w=window.open('');
+    w.document.write(`<img src="${c.imagen_url}" style="max-width:100%">`);
+  }
+}
+
+/* ---- PROMOCIONES ---- */
+function renderPromos() {
+  const cont=document.getElementById('promos-lista');
+  if(!PROMOS.length){cont.innerHTML='<div class="empty"><i class="ti ti-discount-off"></i>Sin promociones. Crea la primera.</div>';return;}
+  cont.innerHTML=PROMOS.map(p=>`
+    <div style="background:white;border:.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;${!p.vigente?'opacity:.6;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:14px;font-weight:600">${p.titulo}</span>
+            ${p.vigente?'<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--gl);color:var(--g)">Vigente</span>':'<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#FCEBEB;color:#A32D2D">Inactiva</span>'}
+            <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--bg-sec);color:var(--text-ter);text-transform:capitalize">${p.aplica_a}</span>
+          </div>
+          ${p.descripcion?`<div style="font-size:12px;color:var(--text-sec);margin-top:4px">${p.descripcion}</div>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:600;color:var(--g)">${fmtM(p.precio_promo||0)}</div>
+          ${p.precio_regular?`<div style="font-size:11px;color:var(--text-ter);text-decoration:line-through">${fmtM(p.precio_regular)}</div>`:''}
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:10px;padding-top:10px;border-top:.5px solid var(--border)">
+        <button class="btn btn-sm" onclick="editarPromo('${p.id}')"><i class="ti ti-edit"></i> Editar</button>
+        <button class="btn btn-sm" onclick="togglePromo('${p.id}',${p.vigente})"><i class="ti ti-power"></i> ${p.vigente?'Desactivar':'Activar'}</button>
+      </div>
+    </div>`).join('');
+}
+
+function abrirNuevaPromo(){
+  document.getElementById('promo-modal-tit').textContent='Nueva promoción';
+  ['promo-id','promo-titulo','promo-desc','promo-precio','promo-regular','promo-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('promo-aplica').value='consulta';
+  document.getElementById('promo-vigente').checked=true;
+  om('promo');
+}
+function editarPromo(id){
+  const p=PROMOS.find(x=>x.id===id);if(!p)return;
+  document.getElementById('promo-modal-tit').textContent='Editar promoción';
+  document.getElementById('promo-id').value=p.id;
+  document.getElementById('promo-titulo').value=p.titulo||'';
+  document.getElementById('promo-desc').value=p.descripcion||'';
+  document.getElementById('promo-precio').value=p.precio_promo||'';
+  document.getElementById('promo-regular').value=p.precio_regular||'';
+  document.getElementById('promo-aplica').value=p.aplica_a||'consulta';
+  document.getElementById('promo-fin').value=p.fecha_fin||'';
+  document.getElementById('promo-vigente').checked=p.vigente!==false;
+  om('promo');
+}
+async function guardarPromo(){
+  const titulo=document.getElementById('promo-titulo').value.trim();
+  if(!titulo){toast('⚠ El título es obligatorio');return;}
+  const id=document.getElementById('promo-id').value;
+  const datos={
+    titulo,
+    descripcion:document.getElementById('promo-desc').value,
+    precio_promo:parseFloat(document.getElementById('promo-precio').value)||0,
+    precio_regular:parseFloat(document.getElementById('promo-regular').value)||0,
+    aplica_a:document.getElementById('promo-aplica').value,
+    fecha_fin:document.getElementById('promo-fin').value||null,
+    vigente:document.getElementById('promo-vigente').checked
+  };
+  try {
+    if(id){
+      await sb('promociones','PATCH',datos,`?id=eq.${id}`);
+      const idx=PROMOS.findIndex(x=>x.id===id);if(idx>=0)PROMOS[idx]={...PROMOS[idx],...datos};
+      toast('✓ Promoción actualizada');
+    } else {
+      datos.id=uid();
+      await sb('promociones','POST',datos);
+      PROMOS.unshift(datos);
+      toast('✓ Promoción creada');
+    }
+    cm('promo'); renderPromos();
+  } catch(e){toast('⚠ Error: '+e.message);}
+}
+async function togglePromo(id,vigente){
+  try {
+    await sb('promociones','PATCH',{vigente:!vigente},`?id=eq.${id}`);
+    const p=PROMOS.find(x=>x.id===id);if(p)p.vigente=!vigente;
+    renderPromos();
+  } catch(e){toast('⚠ Error: '+e.message);}
+}
+
+/* ---- CONFIG AGENTE ---- */
+async function renderConfigAgente() {
+  try {
+    const r = await sb('config_agente','GET',null,'?id=eq.baoqi-agente');
+    const cfg = r&&r[0] ? r[0] : null;
+    if(cfg){
+      document.getElementById('agente-system').value = cfg.system_message||'';
+      document.getElementById('agente-modelo').value = cfg.modelo||'gpt-4o-mini';
+      document.getElementById('agente-updated').value = cfg.updated_at ? new Date(cfg.updated_at).toLocaleString('es-MX') : '—';
+    }
+  } catch(e){
+    document.getElementById('agente-system').value='';
+    document.getElementById('agente-updated').value='(tabla config_agente no encontrada)';
+  }
+}
+async function guardarConfigAgente() {
+  const datos={
+    system_message:document.getElementById('agente-system').value,
+    modelo:document.getElementById('agente-modelo').value,
+    actualizado_por:doctorActual?.nombre||'',
+    updated_at:new Date().toISOString()
+  };
+  try {
+    await sb('config_agente','PATCH',datos,'?id=eq.baoqi-agente');
+    document.getElementById('agente-updated').value=new Date().toLocaleString('es-MX');
+    toast('✓ Configuración del agente guardada');
+  } catch(e){toast('⚠ Error: '+e.message);}
 }

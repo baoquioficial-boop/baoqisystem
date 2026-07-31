@@ -78,11 +78,29 @@
       </button>
       <div id="nav-admin" style="display:none">
         <div class="ni-sep"></div>
+        <button class="ni" onclick="gp('dashboard',this)">
+          <i class="ti ti-layout-dashboard"></i><span class="ni-txt">Dashboard</span>
+        </button>
+        <button class="ni" onclick="gp('crm',this)">
+          <i class="ti ti-address-book"></i><span class="ni-txt">CRM</span><span class="nb" id="nb-crm">0</span>
+        </button>
         <button class="ni" onclick="gp('cursos',this)">
           <i class="ti ti-school"></i><span class="ni-txt">Cursos</span><span class="nb" id="nb-cursos">0</span>
         </button>
+        <button class="ni" onclick="gp('inscripciones',this)">
+          <i class="ti ti-clipboard-list"></i><span class="ni-txt">Inscripciones</span>
+        </button>
+        <button class="ni" onclick="gp('comprobantes',this)">
+          <i class="ti ti-receipt"></i><span class="ni-txt">Comprobantes</span>
+        </button>
+        <button class="ni" onclick="gp('promos',this)">
+          <i class="ti ti-discount"></i><span class="ni-txt">Promociones</span>
+        </button>
+        <button class="ni" onclick="gp('agente',this)">
+          <i class="ti ti-robot"></i><span class="ni-txt">Agente IA</span>
+        </button>
         <button class="ni" onclick="gp('admin',this)">
-          <i class="ti ti-shield-check"></i><span class="ni-txt">Administración</span>
+          <i class="ti ti-shield-check"></i><span class="ni-txt">Configuración</span>
         </button>
       </div>
     </nav>
@@ -280,6 +298,147 @@
           </button>
         </div>
         <div id="cursos-lista"></div>
+      </div>
+
+      <!-- DASHBOARD (solo admin) -->
+      <div class="pg" id="pg-dashboard">
+        <div class="sg">
+          <div class="sc sc-a"><div class="slb">Ingresos del mes</div><div class="sv" id="db-ing-mes">$0</div><div class="ss" id="db-ing-hoy"></div></div>
+          <div class="sc sc-g"><div class="slb">Citas del mes</div><div class="sv" id="db-citas-mes">0</div><div class="ss" id="db-citas-hoy"></div></div>
+          <div class="sc"><div class="slb">Pacientes</div><div class="sv" id="db-pacientes">0</div><div class="ss" id="db-pac-wa"></div></div>
+          <div class="sc sc-a"><div class="slb">Anticipos pendientes</div><div class="sv" id="db-anticipos">$0</div><div class="ss">por cobrar de cursos</div></div>
+        </div>
+        <div class="rep-grid" style="margin-top:16px">
+          <div class="rep-card">
+            <div class="rc-lbl">Citas por WhatsApp</div>
+            <div class="rc-val" id="db-wa-mes">0</div>
+            <div class="rc-sub">este mes (agente Lin)</div>
+          </div>
+          <div class="rep-card">
+            <div class="rc-lbl">Citas manuales</div>
+            <div class="rc-val" id="db-manual-mes">0</div>
+            <div class="rc-sub">agendadas en recepción</div>
+          </div>
+          <div class="rep-card rep-card-a">
+            <div class="rc-lbl">Cursos activos</div>
+            <div class="rc-val" id="db-cursos">0</div>
+            <div class="rc-sub" id="db-insc-mes">0 inscripciones este mes</div>
+          </div>
+        </div>
+        <div style="background:white;border:.5px solid var(--border);border-radius:10px;padding:16px;margin-top:16px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:12px">Efectividad del agente este mes</div>
+          <div id="db-agente-barra"></div>
+        </div>
+      </div>
+
+      <!-- CRM (solo admin) -->
+      <div class="pg" id="pg-crm">
+        <div class="sh">
+          <div class="srch" style="flex:1;max-width:320px">
+            <i class="ti ti-search"></i>
+            <input type="text" placeholder="Buscar contacto..." oninput="filtrarCRM(this.value)">
+          </div>
+          <div style="display:flex;gap:6px">
+            <select class="fs" id="crm-filtro" onchange="renderCRM()" style="font-size:12px;padding:6px 10px;width:auto">
+              <option value="">Todos</option>
+              <option value="paciente">Pacientes</option>
+              <option value="alumno">Alumnos</option>
+              <option value="prospecto">Prospectos</option>
+            </select>
+            <select class="fs" id="crm-origen" onchange="renderCRM()" style="font-size:12px;padding:6px 10px;width:auto">
+              <option value="">Todo origen</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="manual">Manual</option>
+            </select>
+          </div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th>Contacto</th>
+              <th style="width:75px">Tipo</th>
+              <th style="width:70px" class="hide-sm">Origen</th>
+              <th style="width:100px" class="hide-sm">Teléfono</th>
+              <th style="width:55px">Citas</th>
+              <th style="width:70px" class="hide-sm">Pagado</th>
+              <th style="width:45px"></th>
+            </tr></thead>
+            <tbody id="tb-crm"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- INSCRIPCIONES (solo admin) -->
+      <div class="pg" id="pg-inscripciones">
+        <div class="sg">
+          <div class="sc sc-g"><div class="slb">Inscritos activos</div><div class="sv" id="ins-total">0</div></div>
+          <div class="sc sc-a"><div class="slb">Anticipos cobrados</div><div class="sv" id="ins-anticipos">$0</div></div>
+          <div class="sc sc-a"><div class="slb">Por cobrar</div><div class="sv" id="ins-pendiente">$0</div></div>
+          <div class="sc"><div class="slb">Cursos con inscritos</div><div class="sv" id="ins-cursos">0</div></div>
+        </div>
+        <div class="sh"><span class="sti">Todas las inscripciones</span></div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th>Alumno</th>
+              <th class="hide-sm">Curso</th>
+              <th style="width:75px" class="hide-sm">Origen</th>
+              <th style="width:70px">Anticipo</th>
+              <th style="width:70px">Resta</th>
+              <th style="width:80px">Estado</th>
+              <th style="width:45px"></th>
+            </tr></thead>
+            <tbody id="tb-inscripciones"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- COMPROBANTES (solo admin) -->
+      <div class="pg" id="pg-comprobantes">
+        <div class="sh">
+          <span class="sti"><i class="ti ti-receipt" style="color:var(--g);margin-right:6px"></i>Comprobantes de pago</span>
+          <button class="btn btn-g btn-sm" onclick="abrirNuevoComprobante()">
+            <i class="ti ti-plus"></i> Registrar comprobante
+          </button>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th style="width:80px">Fecha</th>
+              <th>Contacto</th>
+              <th style="width:70px">Monto</th>
+              <th style="width:90px" class="hide-sm">Referencia</th>
+              <th style="width:80px" class="hide-sm">Banco</th>
+              <th style="width:85px">Estado</th>
+              <th style="width:60px"></th>
+            </tr></thead>
+            <tbody id="tb-comprobantes"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PROMOCIONES (solo admin) -->
+      <div class="pg" id="pg-promos">
+        <div class="sh">
+          <span class="sti"><i class="ti ti-discount" style="color:var(--g);margin-right:6px"></i>Promociones</span>
+          <button class="btn btn-g btn-sm" onclick="abrirNuevaPromo()">
+            <i class="ti ti-plus"></i> Nueva promoción
+          </button>
+        </div>
+        <div id="promos-lista"></div>
+      </div>
+
+      <!-- AGENTE IA (solo admin) -->
+      <div class="pg" id="pg-agente">
+        <div class="sh">
+          <span class="sti"><i class="ti ti-robot" style="color:var(--g);margin-right:6px"></i>Configuración del agente Lin</span>
+          <button class="btn btn-g btn-sm" onclick="guardarConfigAgente()">
+            <i class="ti ti-device-floppy"></i> Guardar cambios
+          </button>
+        </div>
+        <div class="info-box"><i class="ti ti-info-circle"></i>Aquí editas las instrucciones del agente de WhatsApp. Se guardan en la base de datos. Para que el agente los use, el workflow de n8n debe leer el system desde aquí, o cópialo manualmente a n8n.</div>
+        <div class="fr1"><div class="fg"><label class="fl">System message (instrucciones del agente)</label><textarea class="ft" id="agente-system" style="min-height:400px;font-family:monospace;font-size:12px"></textarea></div></div>
+        <div class="fr"><div class="fg"><label class="fl">Modelo</label><select class="fs" id="agente-modelo"><option>gpt-4o-mini</option><option>gpt-4o</option></select></div><div class="fg"><label class="fl">Última actualización</label><input class="fi" id="agente-updated" type="text" readonly></div></div>
       </div>
 
     </div>
@@ -664,6 +823,73 @@
     </div>
     <div class="mf">
       <button class="btn" onclick="cm('inscritos')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- NUEVO COMPROBANTE -->
+<div class="mw" id="m-comprobante">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-receipt" style="color:#2D6A4F;margin-right:5px"></i>Registrar comprobante</span>
+      <button class="mx" onclick="cm('comprobante')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div class="sep">Buscar contacto</div>
+      <div class="fr1">
+        <div class="fg" style="position:relative">
+          <input class="fi" id="comp-buscar" type="text" placeholder="Nombre o teléfono..." oninput="buscarContactoComp(this.value)" autocomplete="off">
+          <div id="comp-resultados" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:.5px solid var(--border);border-radius:8px;margin-top:4px;max-height:180px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+        </div>
+      </div>
+      <div class="fr1"><div class="fg"><label class="fl">Contacto</label><input class="fi" id="comp-nombre" type="text" placeholder="Nombre del que pagó"></div></div>
+      <div class="sep">Datos del pago</div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Monto *</label><input class="fi" id="comp-monto" type="number" placeholder="0"></div>
+        <div class="fg"><label class="fl">Fecha de pago</label><input class="fi" id="comp-fecha" type="date"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Referencia</label><input class="fi" id="comp-ref" type="text" placeholder="No. de operación"></div>
+        <div class="fg"><label class="fl">Banco</label><input class="fi" id="comp-banco" type="text"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Método</label><select class="fs" id="comp-metodo"><option>Transferencia</option><option>Depósito</option><option>Tarjeta</option><option>Efectivo</option></select></div>
+        <div class="fg"><label class="fl">Concepto</label><select class="fs" id="comp-tipo"><option value="cita">Consulta</option><option value="inscripcion">Curso</option><option value="cobro">Otro</option></select></div>
+      </div>
+      <div class="fr1"><div class="fg"><label class="fl">Imagen del comprobante (opcional)</label><input class="fi" id="comp-img" type="file" accept="image/*" style="padding:6px"></div></div>
+      <div class="fr1"><div class="fg"><label class="fl">Notas</label><input class="fi" id="comp-notas" type="text"></div></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('comprobante')">Cancelar</button>
+      <button class="btn btn-g" onclick="guardarComprobante()"><i class="ti ti-check"></i> Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- NUEVA PROMOCIÓN -->
+<div class="mw" id="m-promo">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-discount" style="color:#2D6A4F;margin-right:5px"></i><span id="promo-modal-tit">Nueva promoción</span></span>
+      <button class="mx" onclick="cm('promo')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <input type="hidden" id="promo-id">
+      <div class="fr1"><div class="fg"><label class="fl">Título *</label><input class="fi" id="promo-titulo" type="text" placeholder="Ej: Promoción de verano"></div></div>
+      <div class="fr1"><div class="fg"><label class="fl">Descripción</label><textarea class="ft" id="promo-desc" style="min-height:44px"></textarea></div></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Precio promoción</label><input class="fi" id="promo-precio" type="number" placeholder="300"></div>
+        <div class="fg"><label class="fl">Precio regular</label><input class="fi" id="promo-regular" type="number" placeholder="400"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Aplica a</label><select class="fs" id="promo-aplica"><option value="consulta">Consulta</option><option value="curso">Curso</option><option value="ambos">Ambos</option></select></div>
+        <div class="fg"><label class="fl">Vigencia (fin)</label><input class="fi" id="promo-fin" type="date"></div>
+      </div>
+      <div class="cbr" style="margin-top:6px"><input type="checkbox" id="promo-vigente" checked><label for="promo-vigente">Promoción vigente</label></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('promo')">Cancelar</button>
+      <button class="btn btn-g" onclick="guardarPromo()"><i class="ti ti-check"></i> Guardar</button>
     </div>
   </div>
 </div>
