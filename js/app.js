@@ -58,6 +58,8 @@ async function cargarTodo() {
 
     actualizarBadges();
     renderAgenda();
+    // Cargar cursos solo si es admin
+    if (esAdmin()) cargarCursos();
   } catch(e) { toast('⚠ Error al cargar datos'); }
 }
 
@@ -74,7 +76,7 @@ function gp(page,el) {
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('pg-'+page).classList.add('on');
   el.classList.add('on');
-  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Administración'};
+  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Administración',cursos:'Cursos'};
   document.getElementById('ptit').textContent=t[page];
   if(page==='agenda') renderAgenda();
   if(page==='pac') renderPacs(PACS);
@@ -82,6 +84,7 @@ function gp(page,el) {
   if(page==='rep') renderReporte();
   if(page==='exp') renderExp();
   if(page==='admin') renderAdmin();
+  if(page==='cursos') renderCursos();
 }
 
 function om(id) {
@@ -756,4 +759,244 @@ async function desbloquearDia(fecha, id) {
     renderBarraDias('agenda-nav', agendaFecha, 'selAgendaDia', 'cambiarSemAgenda');
     toast('✓ Día desbloqueado');
   } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+/* ============================================================
+   MÓDULO CURSOS (solo admin)
+   ============================================================ */
+let CURSOS = [], INSCRIPCIONES = [], insAlumnoSel = null;
+
+async function cargarCursos() {
+  try {
+    [CURSOS, INSCRIPCIONES] = await Promise.all([
+      sb('cursos','GET',null,'?order=fecha_inicio.asc'),
+      sb('inscripciones','GET',null,'?order=created_at.desc'),
+    ]);
+    const nb = document.getElementById('nb-cursos');
+    if (nb) nb.textContent = CURSOS.filter(c=>c.activo).length;
+  } catch(e) { CURSOS=[]; INSCRIPCIONES=[]; }
+}
+
+function inscritosDe(cursoId) {
+  return INSCRIPCIONES.filter(i => i.curso_id===cursoId && i.estado!=='Cancelado');
+}
+
+function renderCursos() {
+  const cont = document.getElementById('cursos-lista');
+  if (!cont) return;
+  if (!CURSOS.length) {
+    cont.innerHTML = '<div class="empty"><i class="ti ti-school-off"></i>Aún no hay cursos. Crea el primero con "Nuevo curso".</div>';
+    return;
+  }
+  cont.innerHTML = CURSOS.map(c => {
+    const inscritos = inscritosDe(c.id).length;
+    const lugares = (c.cupo||0) - inscritos;
+    const lleno = lugares <= 0;
+    const totalAnticipos = inscritosDe(c.id).reduce((s,i)=>s+Number(i.anticipo_pagado||0),0);
+    return `
+    <div style="background:white;border:.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;${!c.activo?'opacity:.6;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:15px;font-weight:600;color:var(--text)">${c.nombre}</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${c.modalidad==='En línea'?'#E6F1FB':'var(--gl)'};color:${c.modalidad==='En línea'?'#185FA5':'var(--g)'}">${c.modalidad||'Presencial'}</span>
+            ${!c.activo?'<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#FCEBEB;color:#A32D2D">Inactivo</span>':''}
+          </div>
+          ${c.descripcion?`<div style="font-size:12px;color:var(--text-sec);margin-top:4px">${c.descripcion}</div>`:''}
+          <div style="font-size:11px;color:var(--text-ter);margin-top:6px;display:flex;gap:14px;flex-wrap:wrap">
+            ${c.fecha_inicio?`<span><i class="ti ti-calendar" style="vertical-align:-1px"></i> ${fmtF(c.fecha_inicio)}</span>`:''}
+            ${c.horario?`<span><i class="ti ti-clock" style="vertical-align:-1px"></i> ${c.horario}</span>`:''}
+            ${c.instructor?`<span><i class="ti ti-user" style="vertical-align:-1px"></i> ${c.instructor}</span>`:''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:18px;font-weight:600;color:var(--g)">${fmtM(c.precio||0)}</div>
+          <div style="font-size:10px;color:var(--text-ter)">anticipo ${fmtM(c.anticipo||0)}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:.5px solid var(--border)">
+        <div style="display:flex;gap:14px;align-items:center">
+          <span style="font-size:12px;color:${lleno?'#A32D2D':'var(--g)'};font-weight:500">
+            <i class="ti ti-users" style="vertical-align:-1px"></i> ${inscritos}/${c.cupo} ${lleno?'(lleno)':`· ${lugares} libre${lugares!==1?'s':''}`}
+          </span>
+          <span style="font-size:11px;color:var(--text-ter)">Anticipos: ${fmtM(totalAnticipos)}</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="verInscritos('${c.id}')"><i class="ti ti-list"></i> Ver</button>
+          <button class="btn btn-sm" onclick="editarCurso('${c.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-sm btn-g" ${lleno?'disabled style="opacity:.5"':''} onclick="abrirInscribir('${c.id}')"><i class="ti ti-user-plus"></i> Inscribir</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abrirNuevoCurso() {
+  document.getElementById('curso-modal-tit').textContent = 'Nuevo curso';
+  ['cur-id','cur-nombre','cur-desc','cur-fecha','cur-horario','cur-instructor'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('cur-cupo').value = 10;
+  document.getElementById('cur-precio').value = '';
+  document.getElementById('cur-anticipo').value = '';
+  document.getElementById('cur-modalidad').value = 'Presencial';
+  document.getElementById('cur-activo').checked = true;
+  om('curso');
+}
+
+function editarCurso(id) {
+  const c = CURSOS.find(x=>x.id===id); if(!c) return;
+  document.getElementById('curso-modal-tit').textContent = 'Editar curso';
+  document.getElementById('cur-id').value = c.id;
+  document.getElementById('cur-nombre').value = c.nombre||'';
+  document.getElementById('cur-desc').value = c.descripcion||'';
+  document.getElementById('cur-fecha').value = c.fecha_inicio||'';
+  document.getElementById('cur-horario').value = c.horario||'';
+  document.getElementById('cur-instructor').value = c.instructor||'';
+  document.getElementById('cur-cupo').value = c.cupo||10;
+  document.getElementById('cur-precio').value = c.precio||'';
+  document.getElementById('cur-anticipo').value = c.anticipo||'';
+  document.getElementById('cur-modalidad').value = c.modalidad||'Presencial';
+  document.getElementById('cur-activo').checked = c.activo!==false;
+  om('curso');
+}
+
+async function guardarCurso() {
+  const nombre = document.getElementById('cur-nombre').value.trim();
+  const fecha = document.getElementById('cur-fecha').value;
+  if(!nombre){toast('⚠ El nombre es obligatorio');return;}
+  if(!fecha){toast('⚠ La fecha de inicio es obligatoria');return;}
+  const id = document.getElementById('cur-id').value;
+  const datos = {
+    nombre,
+    descripcion: document.getElementById('cur-desc').value,
+    fecha_inicio: fecha,
+    horario: document.getElementById('cur-horario').value,
+    instructor: document.getElementById('cur-instructor').value,
+    modalidad: document.getElementById('cur-modalidad').value,
+    cupo: parseInt(document.getElementById('cur-cupo').value)||10,
+    precio: parseFloat(document.getElementById('cur-precio').value)||0,
+    anticipo: parseFloat(document.getElementById('cur-anticipo').value)||0,
+    activo: document.getElementById('cur-activo').checked
+  };
+  try {
+    if(id){
+      await sb('cursos','PATCH',datos,`?id=eq.${id}`);
+      const idx=CURSOS.findIndex(c=>c.id===id); if(idx>=0) CURSOS[idx]={...CURSOS[idx],...datos};
+      toast('✓ Curso actualizado');
+    } else {
+      datos.id = uid();
+      datos.creado_por = doctorActual?.nombre||'';
+      await sb('cursos','POST',datos);
+      CURSOS.push(datos);
+      toast('✓ Curso creado');
+    }
+    cm('curso'); renderCursos();
+    document.getElementById('nb-cursos').textContent = CURSOS.filter(c=>c.activo).length;
+  } catch(e){toast('⚠ Error: '+e.message);}
+}
+
+/* ---- Inscribir ---- */
+function abrirInscribir(cursoId) {
+  const c = CURSOS.find(x=>x.id===cursoId); if(!c) return;
+  insAlumnoSel = null;
+  document.getElementById('ins-curso-id').value = cursoId;
+  document.getElementById('ins-curso-nombre').textContent = c.nombre;
+  ['ins-nombre','ins-tel','ins-notas','ins-buscar'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('ins-anticipo').value = c.anticipo||'';
+  document.getElementById('ins-resto').value = fmtM((c.precio||0)-(c.anticipo||0));
+  document.getElementById('ins-resultados').style.display='none';
+  om('inscribir');
+}
+
+function calcResto() {
+  const cursoId = document.getElementById('ins-curso-id').value;
+  const c = CURSOS.find(x=>x.id===cursoId); if(!c) return;
+  const ant = parseFloat(document.getElementById('ins-anticipo').value)||0;
+  document.getElementById('ins-resto').value = fmtM((c.precio||0)-ant);
+}
+
+function buscarAlumnoInsc(q) {
+  const cont = document.getElementById('ins-resultados');
+  q = (q||'').trim().toLowerCase();
+  if(q.length<2){cont.style.display='none';return;}
+  const qNum = q.replace(/[^0-9]/g,'');
+  const res = PACS.filter(p=>{
+    const nom=(p.nombre||'').toLowerCase();
+    const tel=(p.tel||'').replace(/[^0-9]/g,'');
+    return nom.includes(q)||(qNum.length>=3&&tel.includes(qNum));
+  }).slice(0,6);
+  if(!res.length){cont.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text-ter)">Sin coincidencias — regístralo abajo</div>';cont.style.display='block';return;}
+  cont.innerHTML = res.map(p=>`<div onclick="selAlumnoInsc('${p.id}')" style="padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--bg-sec)'" onmouseout="this.style.background='white'"><div style="font-weight:500">${p.nombre}</div><div style="font-size:11px;color:var(--text-ter)">${p.tel||'sin tel'}</div></div>`).join('');
+  cont.style.display='block';
+}
+
+function selAlumnoInsc(pacId) {
+  const p = PACS.find(x=>x.id===pacId); if(!p) return;
+  insAlumnoSel = p;
+  document.getElementById('ins-nombre').value = p.nombre||'';
+  document.getElementById('ins-tel').value = p.tel||'';
+  document.getElementById('ins-resultados').style.display='none';
+  document.getElementById('ins-buscar').value='';
+}
+
+async function guardarInscripcion() {
+  const cursoId = document.getElementById('ins-curso-id').value;
+  const c = CURSOS.find(x=>x.id===cursoId); if(!c) return;
+  const nombre = document.getElementById('ins-nombre').value.trim();
+  const tel = document.getElementById('ins-tel').value.trim();
+  if(!nombre){toast('⚠ El nombre es obligatorio');return;}
+
+  // Verificar cupo
+  if(inscritosDe(cursoId).length >= c.cupo){toast('⚠ El curso ya está lleno');return;}
+
+  const anticipo = parseFloat(document.getElementById('ins-anticipo').value)||0;
+  const telNorm = tel.replace(/[^0-9]/g,'').slice(-10);
+
+  // Buscar/crear alumno
+  let pac = insAlumnoSel;
+  if(!pac && telNorm) pac = PACS.find(p=>(p.tel||'').replace(/[^0-9]/g,'').slice(-10)===telNorm);
+  if(!pac) pac = PACS.find(p=>p.nombre.toLowerCase().trim()===nombre.toLowerCase().trim());
+  if(!pac){
+    pac={id:uid(),nombre,tel:telNorm,fecha_reg:hoy(),doctor_id:doctorActual?.id};
+    try{await sb('pacientes','POST',pac);PACS.unshift(pac);}catch(e){toast('⚠ Error: '+e.message);return;}
+  }
+
+  const insc = {
+    id: uid(), curso_id: cursoId, curso_nombre: c.nombre,
+    pac_id: pac.id, alumno_nombre: nombre, alumno_tel: telNorm,
+    modalidad: c.modalidad, precio_total: c.precio||0,
+    anticipo_pagado: anticipo, resto_pendiente: (c.precio||0)-anticipo,
+    estado: anticipo>=(c.precio||0)?'Pagado':'Apartado',
+    origen: 'manual', notas: document.getElementById('ins-notas').value,
+    fecha_inscripcion: hoy(), doctor_id: doctorActual?.id
+  };
+  try {
+    await sb('inscripciones','POST',insc);
+    INSCRIPCIONES.unshift(insc);
+    cm('inscribir'); renderCursos();
+    toast('✓ '+nombre+' inscrito en '+c.nombre);
+  } catch(e){toast('⚠ Error: '+e.message);}
+}
+
+/* ---- Ver inscritos ---- */
+function verInscritos(cursoId) {
+  const c = CURSOS.find(x=>x.id===cursoId); if(!c) return;
+  document.getElementById('insc-curso-tit').textContent = c.nombre;
+  const lista = inscritosDe(cursoId);
+  const cont = document.getElementById('insc-lista');
+  if(!lista.length){
+    cont.innerHTML='<div class="empty"><i class="ti ti-users-off"></i>Sin inscritos todavía</div>';
+  } else {
+    cont.innerHTML = lista.map(i=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:.5px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--text)">${i.alumno_nombre}</div>
+          <div style="font-size:11px;color:var(--text-ter)">${i.alumno_tel||'sin tel'} · ${i.origen==='whatsapp'?'📱 WhatsApp':'Manual'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px"><span style="color:var(--g)">Pagó ${fmtM(i.anticipo_pagado)}</span> ${Number(i.resto_pendiente)>0?`<span style="color:var(--text-ter)">· falta ${fmtM(i.resto_pendiente)}</span>`:''}</div>
+          <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${i.estado==='Pagado'?'var(--gl)':'var(--aul)'};color:${i.estado==='Pagado'?'var(--g)':'var(--aud)'}">${i.estado}</span>
+        </div>
+      </div>`).join('');
+  }
+  om('inscritos');
 }

@@ -78,6 +78,9 @@
       </button>
       <div id="nav-admin" style="display:none">
         <div class="ni-sep"></div>
+        <button class="ni" onclick="gp('cursos',this)">
+          <i class="ti ti-school"></i><span class="ni-txt">Cursos</span><span class="nb" id="nb-cursos">0</span>
+        </button>
         <button class="ni" onclick="gp('admin',this)">
           <i class="ti ti-shield-check"></i><span class="ni-txt">Administración</span>
         </button>
@@ -266,6 +269,17 @@
           </div>
           <div id="admin-dias"></div>
         </div>
+      </div>
+
+      <!-- CURSOS (solo admin) -->
+      <div class="pg" id="pg-cursos">
+        <div class="sh">
+          <span class="sti"><i class="ti ti-school" style="color:var(--g);margin-right:6px"></i>Cursos y talleres</span>
+          <button class="btn btn-g btn-sm" onclick="abrirNuevoCurso()">
+            <i class="ti ti-plus"></i> Nuevo curso
+          </button>
+        </div>
+        <div id="cursos-lista"></div>
       </div>
 
     </div>
@@ -568,6 +582,89 @@
       <div class="info-box" style="margin-top:8px"><i class="ti ti-shield-lock"></i>El PIN debe ser único — el sistema lo usará para identificar automáticamente al doctor sin mostrar su nombre en el login.</div>
     </div>
     <div class="mf"><button class="btn" onclick="cm('ndoc')">Cancelar</button><button class="btn btn-g" onclick="guardarDoctor()"><i class="ti ti-check"></i> Registrar doctor</button></div>
+  </div>
+</div>
+
+<!-- NUEVO/EDITAR CURSO -->
+<div class="mw" id="m-curso">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-school" style="color:#2D6A4F;margin-right:5px"></i><span id="curso-modal-tit">Nuevo curso</span></span>
+      <button class="mx" onclick="cm('curso')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <input type="hidden" id="cur-id">
+      <div class="fr1"><div class="fg"><label class="fl">Nombre del curso *</label><input class="fi" id="cur-nombre" type="text" placeholder="Ej: Taller de Moxibustión"></div></div>
+      <div class="fr1"><div class="fg"><label class="fl">Descripción</label><textarea class="ft" id="cur-desc" placeholder="De qué trata, a quién va dirigido..." style="min-height:52px"></textarea></div></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Fecha de inicio *</label><input class="fi" id="cur-fecha" type="date"></div>
+        <div class="fg"><label class="fl">Modalidad</label><select class="fs" id="cur-modalidad"><option>Presencial</option><option>En línea</option></select></div>
+      </div>
+      <div class="fr1"><div class="fg"><label class="fl">Horario</label><input class="fi" id="cur-horario" type="text" placeholder="Ej: Sábados 10:00 - 13:00"></div></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Instructor</label><input class="fi" id="cur-instructor" type="text"></div>
+        <div class="fg"><label class="fl">Cupo</label><input class="fi" id="cur-cupo" type="number" value="10" min="1"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Precio total</label><input class="fi" id="cur-precio" type="number" placeholder="0"></div>
+        <div class="fg"><label class="fl">Anticipo para apartar</label><input class="fi" id="cur-anticipo" type="number" placeholder="0"></div>
+      </div>
+      <div class="cbr" style="margin-top:6px"><input type="checkbox" id="cur-activo" checked><label for="cur-activo">Curso activo (se puede inscribir)</label></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('curso')">Cancelar</button>
+      <button class="btn btn-g" onclick="guardarCurso()"><i class="ti ti-device-floppy"></i> Guardar curso</button>
+    </div>
+  </div>
+</div>
+
+<!-- INSCRIBIR ALUMNO -->
+<div class="mw" id="m-inscribir">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-user-plus" style="color:#2D6A4F;margin-right:5px"></i>Inscribir en <span id="ins-curso-nombre">curso</span></span>
+      <button class="mx" onclick="cm('inscribir')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <input type="hidden" id="ins-curso-id">
+      <div class="sep">Buscar alumno existente</div>
+      <div class="fr1">
+        <div class="fg" style="position:relative">
+          <input class="fi" id="ins-buscar" type="text" placeholder="Nombre o teléfono..." oninput="buscarAlumnoInsc(this.value)" autocomplete="off">
+          <div id="ins-resultados" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:.5px solid var(--border);border-radius:8px;margin-top:4px;max-height:180px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+        </div>
+      </div>
+      <div class="sep">Datos del alumno</div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="ins-nombre" type="text"></div>
+        <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="ins-tel" type="tel"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Anticipo pagado</label><input class="fi" id="ins-anticipo" type="number" placeholder="0" oninput="calcResto()"></div>
+        <div class="fg"><label class="fl">Resto pendiente</label><input class="fi" id="ins-resto" type="text" readonly></div>
+      </div>
+      <div class="fr1"><div class="fg"><label class="fl">Notas</label><input class="fi" id="ins-notas" type="text" placeholder="Observaciones..."></div></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('inscribir')">Cancelar</button>
+      <button class="btn btn-g" onclick="guardarInscripcion()"><i class="ti ti-check"></i> Inscribir</button>
+    </div>
+  </div>
+</div>
+
+<!-- VER INSCRITOS -->
+<div class="mw" id="m-inscritos">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-users" style="color:#2D6A4F;margin-right:5px"></i>Inscritos — <span id="insc-curso-tit">curso</span></span>
+      <button class="mx" onclick="cm('inscritos')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div id="insc-lista"></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('inscritos')">Cerrar</button>
+    </div>
   </div>
 </div>
 
