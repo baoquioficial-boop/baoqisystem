@@ -257,12 +257,12 @@
 
         <!-- Días bloqueados -->
         <div class="sh" style="margin-top:24px">
-          <span class="sti"><i class="ti ti-calendar-off" style="color:#A32D2D;margin-right:6px"></i>Disponibilidad — próximos sábados y domingos</span>
+          <span class="sti"><i class="ti ti-calendar-off" style="color:#A32D2D;margin-right:6px"></i>Disponibilidad — próximos días de atención</span>
         </div>
         <div style="background:white;border:.5px solid var(--border);border-radius:10px;padding:14px 16px">
           <div style="font-size:11px;color:var(--text-sec);margin-bottom:12px;display:flex;align-items:center;gap:6px">
             <i class="ti ti-info-circle" style="color:var(--g)"></i>
-            Solo sábados y domingos. Bloquea días festivos o vacaciones para que no se puedan agendar citas.
+            Martes a sábado. Bloquea días festivos o vacaciones para que no se puedan agendar citas.
           </div>
           <div id="admin-dias"></div>
         </div>
@@ -282,7 +282,20 @@
       <button class="mx" onclick="cm('ncita')"><i class="ti ti-x"></i></button>
     </div>
     <div class="mb">
-      <div class="info-box"><i class="ti ti-info-circle"></i>Solo datos básicos. La historia clínica se llena cuando el paciente llega.</div>
+      <div class="info-box"><i class="ti ti-info-circle"></i>Busca un paciente existente o registra uno nuevo. La historia clínica se llena cuando el paciente llega.</div>
+
+      <div class="sep">Buscar paciente existente</div>
+      <div class="fr1">
+        <div class="fg" style="position:relative">
+          <input class="fi" id="nc-buscar" type="text" placeholder="Escribe nombre o teléfono para buscar..." oninput="buscarPacienteCita(this.value)" autocomplete="off">
+          <div id="nc-resultados" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:.5px solid var(--border);border-radius:8px;margin-top:4px;max-height:180px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+        </div>
+      </div>
+      <div id="nc-pac-sel" style="display:none;background:var(--gl);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;color:var(--g);display:none;align-items:center;justify-content:space-between">
+        <span id="nc-pac-sel-txt"></span>
+        <button class="mx" onclick="limpiarPacienteCita()" style="color:var(--g)"><i class="ti ti-x"></i></button>
+      </div>
+
       <div class="sep">Datos del paciente</div>
       <div class="fr">
         <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="nc-nombre" type="text" placeholder="Apellidos, Nombre"></div>
@@ -296,7 +309,7 @@
       </div>
       <div class="fr">
         <div class="fg"><label class="fl">Fecha *</label><input class="fi" type="date" id="nc-fecha"></div>
-        <div class="fg"><label class="fl">Hora *</label><input class="fi" type="time" id="nc-hora" value="09:00"></div>
+        <div class="fg"><label class="fl">Hora *</label><input class="fi" type="time" id="nc-hora" value="09:00" min="09:00" max="15:00" step="3600"></div>
       </div>
       <div class="fr1"><div class="fg"><label class="fl">Notas</label><textarea class="ft" id="nc-notas" placeholder="Referido por, observaciones..." style="min-height:44px"></textarea></div></div>
     </div>

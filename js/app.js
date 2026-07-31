@@ -87,7 +87,7 @@ function gp(page,el) {
 function om(id) {
   document.getElementById('m-'+id).classList.add('op');
   if(id==='cobrar') { poblarSelectCobro(); actualizarMonto(); }
-  if(id==='ncita') { document.getElementById('nc-fecha').value=agendaFecha||hoy(); poblarSelectDoctor(); }
+  if(id==='ncita') { document.getElementById('nc-fecha').value=agendaFecha||hoy(); poblarSelectDoctor(); if(typeof limpiarPacienteCita==='function') limpiarPacienteCita(); }
 }
 function cm(id) { document.getElementById('m-'+id).classList.remove('op'); }
 function sm(el) { el.closest('.met-g').querySelectorAll('.met').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
@@ -128,16 +128,74 @@ function actualizarMonto() {
 }
 
 /* ============ NUEVA CITA SIMPLE ============ */
+// ---- Buscador de paciente existente en modal de cita ----
+let ncPacienteSel = null;
+
+function buscarPacienteCita(q) {
+  const cont = document.getElementById('nc-resultados');
+  if (!cont) return;
+  q = (q||'').trim().toLowerCase();
+  if (q.length < 2) { cont.style.display='none'; return; }
+  const qNum = q.replace(/[^0-9]/g,'');
+  const res = PACS.filter(p => {
+    const nom = (p.nombre||'').toLowerCase();
+    const tel = (p.tel||'').replace(/[^0-9]/g,'');
+    return nom.includes(q) || (qNum.length>=3 && tel.includes(qNum));
+  }).slice(0, 8);
+  if (!res.length) {
+    cont.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--text-ter)">Sin coincidencias — puedes registrarlo como nuevo abajo</div>';
+    cont.style.display='block';
+    return;
+  }
+  cont.innerHTML = res.map(p => {
+    const nCitas = CITAS.filter(c=>c.pac_id===p.id).length;
+    return `<div onclick="seleccionarPacienteCita('${p.id}')" style="padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--bg-sec)'" onmouseout="this.style.background='white'">
+      <div style="font-weight:500;color:var(--text)">${p.nombre}</div>
+      <div style="font-size:11px;color:var(--text-ter)">${p.tel||'sin tel'} · ${nCitas} cita${nCitas!==1?'s':''} previa${nCitas!==1?'s':''}</div>
+    </div>`;
+  }).join('');
+  cont.style.display='block';
+}
+
+function seleccionarPacienteCita(pacId) {
+  const p = PACS.find(x=>x.id===pacId);
+  if (!p) return;
+  ncPacienteSel = p;
+  // Autocompletar y bloquear campos
+  document.getElementById('nc-nombre').value = p.nombre||'';
+  document.getElementById('nc-tel').value = p.tel||'';
+  document.getElementById('nc-motivo').value = p.motivo||'';
+  // Marcar como subsecuente automáticamente
+  document.getElementById('nc-tipo').value = 'Subsecuente';
+  // Mostrar chip de paciente seleccionado
+  const chip = document.getElementById('nc-pac-sel');
+  const nCitas = CITAS.filter(c=>c.pac_id===p.id).length;
+  document.getElementById('nc-pac-sel-txt').innerHTML = `<i class="ti ti-user-check" style="vertical-align:-2px"></i> ${p.nombre} — paciente existente (${nCitas} cita${nCitas!==1?'s':''})`;
+  chip.style.display='flex';
+  // Ocultar buscador y resultados
+  document.getElementById('nc-resultados').style.display='none';
+  document.getElementById('nc-buscar').value='';
+}
+
+function limpiarPacienteCita() {
+  ncPacienteSel = null;
+  document.getElementById('nc-pac-sel').style.display='none';
+  document.getElementById('nc-nombre').value='';
+  document.getElementById('nc-tel').value='';
+  document.getElementById('nc-motivo').value='';
+  document.getElementById('nc-tipo').value='Primera vez';
+}
+
 async function guardarCitaSimple() {
   const nombre=document.getElementById('nc-nombre').value.trim();
   const tel=document.getElementById('nc-tel').value.trim();
   const fecha=document.getElementById('nc-fecha').value;
   if(!nombre||!fecha){toast('⚠ Nombre y fecha son obligatorios');return;}
 
-  // ✅ Solo sábado (6) o domingo (0)
+  // ✅ Martes(2) a Sábado(6) — cerrado domingo(0) y lunes(1)
   const _diaSem = new Date(fecha+'T12:00:00').getDay();
-  if(_diaSem!==0 && _diaSem!==6){
-    toast('⚠ Solo se atiende sábados y domingos');return;
+  if(_diaSem===0 || _diaSem===1){
+    toast('⚠ Se atiende de martes a sábado');return;
   }
   // ✅ Verificar que no esté bloqueado
   const _bloq = DIAS_BLOQUEADOS.find(d=>d.fecha===fecha);
@@ -150,7 +208,11 @@ async function guardarCitaSimple() {
   // Buscar paciente existente — primero por teléfono normalizado, luego por nombre
   const telNorm = (tel||'').replace(/[^0-9]/g,'').slice(-10);
   let pac = null;
-  if (telNorm) {
+  // Si ya se seleccionó un paciente del buscador, usarlo directo (no duplicar)
+  if (ncPacienteSel) {
+    pac = ncPacienteSel;
+  }
+  if (!pac && telNorm) {
     pac = PACS.find(p => (p.tel||'').replace(/[^0-9]/g,'').slice(-10) === telNorm);
   }
   if (!pac) {
@@ -330,12 +392,14 @@ let cajaFecha = hoy();
 let semOffset = 0; // semanas desde hoy, compartido entre agenda y caja
 
 /* ---- Utilidades de semana ---- */
+// Días laborables: martes(2) a sábado(6). Devuelve los 5 días de la semana con offset.
 function getSabDom(weekOffset) {
   const hoyD = new Date();
   const diaSem = hoyD.getDay();
   const lunes = new Date(hoyD);
   lunes.setDate(hoyD.getDate() - (diaSem === 0 ? 6 : diaSem - 1) + weekOffset * 7);
-  return [5, 6].map(offset => {
+  // offsets desde lunes: martes=1, miércoles=2, jueves=3, viernes=4, sábado=5
+  return [1, 2, 3, 4, 5].map(offset => {
     const d = new Date(lunes);
     d.setDate(lunes.getDate() + offset);
     const iso = fechaLocal(d);
@@ -379,21 +443,21 @@ function renderBarraDias(navId, fechaActual, fnSelDia, fnSemana) {
         <span style="font-size:12px;font-weight:500;color:var(--text-sec)">${getMesLabel(semOffset)}</span>
         <button class="btn btn-sm" onclick="${fnSemana}(1)"><i class="ti ti-chevron-right"></i></button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
         ${dias.map(d=>`
           <button onclick="${fnSelDia}('${d.iso}')"
-            style="padding:10px 8px;border-radius:9px;
+            style="padding:9px 4px;border-radius:9px;
               border:${d.iso===fechaActual?'2px solid var(--g)':'.5px solid var(--border)'};
               background:${d.iso===fechaActual?'var(--gl)':d.esHoy?'var(--aul)':'white'};
               cursor:pointer;text-align:center;transition:all .15s;">
-            <div style="font-size:11px;font-weight:500;color:${d.iso===fechaActual?'var(--g)':d.esHoy?'var(--aud)':'var(--text-sec)'};">${d.diaNombre}</div>
-            <div style="font-size:20px;font-weight:600;color:${d.iso===fechaActual?'var(--g)':d.esHoy?'var(--aud)':'var(--text)'};line-height:1.2;">${d.diaNum}</div>
-            <div style="font-size:10px;color:var(--text-ter);">${d.mes}</div>
-            ${d.esHoy?'<div style="font-size:9px;color:var(--aud);font-weight:600;margin-top:2px">Hoy</div>':''}
-            <div style="font-size:9px;margin-top:5px;padding:2px 6px;border-radius:6px;display:inline-block;
+            <div style="font-size:10px;font-weight:500;color:${d.iso===fechaActual?'var(--g)':d.esHoy?'var(--aud)':'var(--text-sec)'};">${d.diaNombre}</div>
+            <div style="font-size:18px;font-weight:600;color:${d.iso===fechaActual?'var(--g)':d.esHoy?'var(--aud)':'var(--text)'};line-height:1.2;">${d.diaNum}</div>
+            <div style="font-size:9px;color:var(--text-ter);">${d.mes}</div>
+            ${d.esHoy?'<div style="font-size:8px;color:var(--aud);font-weight:600;margin-top:1px">Hoy</div>':''}
+            <div style="font-size:8px;margin-top:4px;padding:2px 4px;border-radius:5px;display:inline-block;
               background:${DIAS_BLOQUEADOS.find(b=>b.fecha===d.iso)?'#FCEBEB':contarCitas(d.iso)>0?'var(--gl)':'var(--bg-sec)'};
               color:${DIAS_BLOQUEADOS.find(b=>b.fecha===d.iso)?'#A32D2D':contarCitas(d.iso)>0?'var(--g)':'var(--text-ter)'};">
-              ${DIAS_BLOQUEADOS.find(b=>b.fecha===d.iso)?'🔒 Bloqueado':contarCitas(d.iso)+' cita'+(contarCitas(d.iso)!==1?'s':'')}
+              ${DIAS_BLOQUEADOS.find(b=>b.fecha===d.iso)?'🔒':contarCitas(d.iso)+(contarCitas(d.iso)!==1?' citas':' cita')}
             </div>
           </button>`).join('')}
       </div>
@@ -624,17 +688,17 @@ function renderAdmin(){
   const diasEl = document.getElementById('admin-dias');
   if(!diasEl) return;
 
-  // Próximos 8 sáb/dom — fecha local (no UTC)
+  // Próximos días laborables (martes a sábado) — fecha local (no UTC)
   const proxDias = [];
   const hoyD = new Date();
   const hoyLocal = hoyD.getFullYear()+'-'+String(hoyD.getMonth()+1).padStart(2,'0')+'-'+String(hoyD.getDate()).padStart(2,'0');
-  for(let i=0;i<60;i++){
+  for(let i=0;i<30;i++){
     const d = new Date(hoyD); d.setDate(hoyD.getDate()+i);
     const dow = d.getDay();
-    if(dow===0||dow===6){
+    if(dow>=2 && dow<=6){  // martes(2) a sábado(6)
       const iso = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       proxDias.push(iso);
-      if(proxDias.length>=8) break;
+      if(proxDias.length>=10) break;
     }
   }
 
