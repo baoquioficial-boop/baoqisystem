@@ -562,7 +562,7 @@ function renderCitaCard(cita) {
       <div class="cita-motivo"><span class="tipo-tag ${tipoClass}">${cita.tipo}</span> · ${cita.motivo||'—'}</div>
       ${docLine}
     </div>
-    <div class="cita-acciones">${estadoPill}${acciones}</div>
+    <div class="cita-acciones">${estadoPill}${acciones}<button class="ra" onclick="menuCita('${cita.id}',event)" title="Opciones" style="margin-left:2px"><i class="ti ti-dots-vertical"></i></button></div>
   </div>`;
 }
 
@@ -1446,4 +1446,48 @@ async function restaurarVersion(id) {
     toast('✓ Versión restaurada');
     verHistoricoSystem();
   } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+/* ---- CANCELAR / ELIMINAR CITAS ---- */
+async function cancelarCita(citaId) {
+  const cita = CITAS.find(c=>c.id===citaId); if(!cita) return;
+  if(!confirm(`¿Cancelar la cita de ${cita.pac_nombre} del ${fmtF(cita.fecha)} a las ${cita.hora}?\n\nLa cita se marca como cancelada pero queda en el registro.`)) return;
+  try {
+    await sb('citas','PATCH',{estado:'Cancelada'},`?id=eq.${citaId}`);
+    cita.estado = 'Cancelada';
+    renderAgenda(); actualizarBadges();
+    toast('✓ Cita cancelada');
+  } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+async function eliminarCita(citaId) {
+  const cita = CITAS.find(c=>c.id===citaId); if(!cita) return;
+  if(!confirm(`¿ELIMINAR permanentemente la cita de ${cita.pac_nombre} del ${fmtF(cita.fecha)} a las ${cita.hora}?\n\nEsta acción no se puede deshacer. El paciente NO se elimina, solo esta cita.`)) return;
+  try {
+    await sb('citas','DELETE',null,`?id=eq.${citaId}`);
+    CITAS = CITAS.filter(c=>c.id!==citaId);
+    renderAgenda(); actualizarBadges();
+    toast('✓ Cita eliminada');
+  } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+function menuCita(citaId, ev) {
+  ev.stopPropagation();
+  // Cerrar cualquier menú abierto
+  document.querySelectorAll('.cita-menu-pop').forEach(m=>m.remove());
+  const cita = CITAS.find(c=>c.id===citaId); if(!cita) return;
+  const pop = document.createElement('div');
+  pop.className = 'cita-menu-pop';
+  pop.style.cssText = 'position:absolute;right:0;top:100%;background:white;border:.5px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:50;min-width:160px;overflow:hidden';
+  pop.innerHTML = `
+    ${cita.estado!=='Cancelada'?`<button onclick="cancelarCita('${citaId}');this.closest('.cita-menu-pop').remove()" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;font-size:13px;cursor:pointer;color:var(--aud);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--bg-sec)'" onmouseout="this.style.background='none'"><i class="ti ti-ban"></i> Cancelar cita</button>`:''}
+    <button onclick="eliminarCita('${citaId}');this.closest('.cita-menu-pop').remove()" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;font-size:13px;cursor:pointer;color:#A32D2D;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#FCEBEB'" onmouseout="this.style.background='none'"><i class="ti ti-trash"></i> Eliminar</button>`;
+  ev.currentTarget.parentElement.style.position='relative';
+  ev.currentTarget.parentElement.appendChild(pop);
+  // Cerrar al hacer clic fuera
+  setTimeout(()=>{
+    document.addEventListener('click', function cerrar(e){
+      if(!pop.contains(e.target)){ pop.remove(); document.removeEventListener('click',cerrar); }
+    });
+  },10);
 }
