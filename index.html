@@ -432,13 +432,25 @@
       <div class="pg" id="pg-agente">
         <div class="sh">
           <span class="sti"><i class="ti ti-robot" style="color:var(--g);margin-right:6px"></i>Configuración del agente Lin</span>
-          <button class="btn btn-g btn-sm" onclick="guardarConfigAgente()">
-            <i class="ti ti-device-floppy"></i> Guardar cambios
-          </button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" onclick="verHistoricoSystem()">
+              <i class="ti ti-history"></i> Versiones
+            </button>
+            <button class="btn btn-g btn-sm" onclick="guardarConfigAgente()">
+              <i class="ti ti-device-floppy"></i> Guardar cambios
+            </button>
+          </div>
         </div>
-        <div class="info-box"><i class="ti ti-info-circle"></i>Aquí editas las instrucciones del agente de WhatsApp. Se guardan en la base de datos. Para que el agente los use, el workflow de n8n debe leer el system desde aquí, o cópialo manualmente a n8n.</div>
+        <div class="info-box"><i class="ti ti-info-circle"></i>Aquí editas las instrucciones del agente de WhatsApp. Se guardan en la base de datos y el agente las lee automáticamente. Cada vez que guardas, la versión anterior queda archivada en "Versiones".</div>
         <div class="fr1"><div class="fg"><label class="fl">System message (instrucciones del agente)</label><textarea class="ft" id="agente-system" style="min-height:400px;font-family:monospace;font-size:12px"></textarea></div></div>
         <div class="fr"><div class="fg"><label class="fl">Modelo</label><select class="fs" id="agente-modelo"><option>gpt-4o-mini</option><option>gpt-4o</option></select></div><div class="fg"><label class="fl">Última actualización</label><input class="fi" id="agente-updated" type="text" readonly></div></div>
+        <div id="agente-historico" style="display:none;margin-top:16px;background:white;border:.5px solid var(--border);border-radius:10px;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:13px;font-weight:600">Versiones anteriores</span>
+            <button class="mx" onclick="document.getElementById('agente-historico').style.display='none'"><i class="ti ti-x"></i></button>
+          </div>
+          <div id="historico-lista"></div>
+        </div>
       </div>
 
     </div>

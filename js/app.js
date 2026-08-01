@@ -1391,3 +1391,59 @@ async function guardarConfigAgente() {
     toast('✓ Configuración del agente guardada');
   } catch(e){toast('⚠ Error: '+e.message);}
 }
+
+/* ---- HISTÓRICO DE VERSIONES DEL SYSTEM ---- */
+let HIST_SYSTEM = [];
+
+async function verHistoricoSystem() {
+  const panel = document.getElementById('agente-historico');
+  const cont = document.getElementById('historico-lista');
+  panel.style.display = 'block';
+  cont.innerHTML = '<div style="font-size:12px;color:var(--text-ter)">Cargando...</div>';
+  try {
+    const r = await sb('historico_system','POST',{},'');
+    HIST_SYSTEM = Array.isArray(r) ? (r[0]?.historico_system || r[0] || []) : (r.historico_system || r || []);
+    if (!Array.isArray(HIST_SYSTEM)) HIST_SYSTEM = [];
+  } catch(e) {
+    // fallback: leer tabla directo
+    try {
+      HIST_SYSTEM = await sb('config_agente_historico','GET',null,'?order=created_at.desc&select=id,guardado_por,caracteres,modelo,created_at,system_message');
+      HIST_SYSTEM = HIST_SYSTEM.map(h=>({...h, fecha:new Date(h.created_at).toLocaleString('es-MX'), preview:(h.system_message||'').slice(0,100)}));
+    } catch(e2){ HIST_SYSTEM=[]; }
+  }
+  if (!HIST_SYSTEM.length) {
+    cont.innerHTML = '<div style="font-size:12px;color:var(--text-ter)">Aún no hay versiones anteriores. Se archivan automáticamente cada vez que guardas un cambio.</div>';
+    return;
+  }
+  cont.innerHTML = HIST_SYSTEM.map((h,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:.5px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500">${h.fecha||'—'} <span style="color:var(--text-ter);font-weight:400">· ${h.guardado_por||'—'}</span></div>
+        <div style="font-size:11px;color:var(--text-ter)">${h.caracteres||0} caracteres · ${h.modelo||'—'}</div>
+      </div>
+      <button class="btn btn-sm" onclick="restaurarVersion('${h.id}')"><i class="ti ti-arrow-back-up"></i> Restaurar</button>
+    </div>`).join('');
+}
+
+async function restaurarVersion(id) {
+  if(!confirm('¿Restaurar esta versión? La versión actual se archivará y el agente usará la restaurada.')) return;
+  try {
+    // Traer el system completo de esa versión
+    const r = await sb('config_agente_historico','GET',null,`?id=eq.${id}&select=system_message,modelo`);
+    if(!r || !r[0]) { toast('⚠ No se encontró la versión'); return; }
+    const sysMsg = r[0].system_message;
+    const modelo = r[0].modelo || 'gpt-4o-mini';
+    // Guardar como versión actual (esto archivará la actual por el trigger)
+    await sb('config_agente','PATCH',{
+      system_message: sysMsg, modelo,
+      actualizado_por: (doctorActual?.nombre||'')+' (restauró versión)',
+      updated_at: new Date().toISOString()
+    },'?id=eq.baoqi-agente');
+    // Reflejar en el editor
+    document.getElementById('agente-system').value = sysMsg;
+    document.getElementById('agente-modelo').value = modelo;
+    document.getElementById('agente-updated').value = new Date().toLocaleString('es-MX');
+    toast('✓ Versión restaurada');
+    verHistoricoSystem();
+  } catch(e){ toast('⚠ Error: '+e.message); }
+}
