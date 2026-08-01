@@ -70,6 +70,9 @@
       <button class="ni" onclick="gp('caja',this)">
         <i class="ti ti-cash"></i><span class="ni-txt">Caja</span><span class="nb" id="nb-caja">0</span>
       </button>
+      <button class="ni" onclick="gp('recordatorios',this)">
+        <i class="ti ti-bell"></i><span class="ni-txt">Recordatorios</span>
+      </button>
       <button class="ni" onclick="gp('rep',this)">
         <i class="ti ti-chart-bar"></i><span class="ni-txt">Reportes</span>
       </button>
@@ -198,6 +201,42 @@
               <th style="width:45px"></th>
             </tr></thead>
             <tbody id="tb-caja"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RECORDATORIOS -->
+      <div class="pg" id="pg-recordatorios">
+        <div class="sh">
+          <span class="sti"><i class="ti ti-bell" style="color:var(--g);margin-right:6px"></i>Recordatorios de cita por WhatsApp</span>
+        </div>
+        <div class="info-box"><i class="ti ti-info-circle"></i>Selecciona un día, revisa la lista y envía los recordatorios. Se mandan uno cada 3 minutos para no saturar WhatsApp. <strong>Mantén esta pestaña abierta</strong> mientras se envían.</div>
+
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+          <div class="fg" style="margin:0"><label class="fl">Fecha de las citas</label><input class="fi" type="date" id="rec-fecha" onchange="cargarRecordatorios()" style="width:auto"></div>
+          <button class="btn btn-g" id="rec-btn-enviar" onclick="iniciarEnvioRecordatorios()"><i class="ti ti-send"></i> Enviar recordatorios</button>
+          <button class="btn" id="rec-btn-detener" onclick="detenerEnvio()" style="display:none;border-color:#A32D2D;color:#A32D2D"><i class="ti ti-player-stop"></i> Detener</button>
+        </div>
+
+        <div id="rec-progreso" style="display:none;background:white;border:.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:600" id="rec-progreso-txt">Enviando...</span>
+            <span style="font-size:12px;color:var(--text-ter)" id="rec-progreso-cont">0/0</span>
+          </div>
+          <div style="height:8px;background:var(--bg-sec);border-radius:4px;overflow:hidden"><div id="rec-progreso-barra" style="height:100%;background:var(--g);width:0%;transition:width .3s"></div></div>
+          <div id="rec-siguiente" style="font-size:11px;color:var(--text-ter);margin-top:8px"></div>
+        </div>
+
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th style="width:55px">Hora</th>
+              <th>Paciente</th>
+              <th style="width:110px" class="hide-sm">Teléfono</th>
+              <th style="width:90px">Estado</th>
+              <th style="width:70px"></th>
+            </tr></thead>
+            <tbody id="tb-recordatorios"></tbody>
           </table>
         </div>
       </div>

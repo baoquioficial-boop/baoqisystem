@@ -76,7 +76,7 @@ function gp(page,el) {
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('pg-'+page).classList.add('on');
   el.classList.add('on');
-  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA'};
+  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA',recordatorios:'Recordatorios'};
   document.getElementById('ptit').textContent=t[page];
   if(page==='agenda') renderAgenda();
   if(page==='pac') renderPacs(PACS);
@@ -91,6 +91,7 @@ function gp(page,el) {
   if(page==='comprobantes') renderComprobantes();
   if(page==='promos') renderPromos();
   if(page==='agente') renderConfigAgente();
+  if(page==='recordatorios'){ const rf=document.getElementById('rec-fecha'); if(rf && !rf.value){ rf.value=hoy(); } cargarRecordatorios(); }
 }
 
 function om(id) {
@@ -1490,4 +1491,213 @@ function menuCita(citaId, ev) {
       if(!pop.contains(e.target)){ pop.remove(); document.removeEventListener('click',cerrar); }
     });
   },10);
+}
+
+/* ============================================================
+   RECORDATORIOS por WhatsApp vía Evolution API
+   Envía uno cada 3 minutos, mensaje personalizado por cita
+   ============================================================ */
+let REC_CITAS = [], REC_ENVIANDO = false, REC_TIMER = null, REC_INDICE = 0;
+const REC_INTERVALO_MS = 3 * 60 * 1000; // 3 minutos
+
+function cargarRecordatorios() {
+  const fecha = document.getElementById('rec-fecha').value;
+  if (!fecha) return;
+  // Citas de ese día que no estén canceladas
+  REC_CITAS = CITAS.filter(c => c.fecha === fecha && c.estado !== 'Cancelada')
+                   .sort((a,b) => a.hora.localeCompare(b.hora))
+                   .map(c => ({...c, _rec_estado: 'pendiente'}));
+  renderRecordatorios();
+}
+
+function renderRecordatorios() {
+  const tb = document.getElementById('tb-recordatorios');
+  if (!REC_CITAS.length) {
+    tb.innerHTML = '<tr><td colspan="5"><div class="empty"><i class="ti ti-bell-off"></i>Sin citas para recordar en esta fecha</div></td></tr>';
+    return;
+  }
+  tb.innerHTML = REC_CITAS.map((c,i) => {
+    const pac = PACS.find(p=>p.id===c.pac_id) || {};
+    const tel = c.tel_contacto || pac.tel || '';
+    const sinTel = !tel;
+    let pill;
+    if (c._rec_estado === 'enviado') pill = '<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--gl);color:var(--g)"><i class="ti ti-check"></i> Enviado</span>';
+    else if (c._rec_estado === 'error') pill = '<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#FCEBEB;color:#A32D2D">Error</span>';
+    else if (c._rec_estado === 'enviando') pill = '<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--aul);color:var(--aud)">Enviando...</span>';
+    else if (sinTel) pill = '<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#FCEBEB;color:#A32D2D">Sin teléfono</span>';
+    else pill = '<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--bg-sec);color:var(--text-ter)">Pendiente</span>';
+    return `<tr>
+      <td style="font-weight:600">${c.hora}</td>
+      <td>${c.pac_nombre||pac.nombre||'—'}</td>
+      <td class="hide-sm">${tel||'—'}</td>
+      <td>${pill}</td>
+      <td>${!sinTel && c._rec_estado!=='enviado' ? `<button class="ra" onclick="enviarUnoManual(${i})" title="Enviar solo este"><i class="ti ti-send"></i></button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Construye el mensaje personalizado para cada cita
+function armarMensajeRecordatorio(cita) {
+  const pac = PACS.find(p=>p.id===cita.pac_id) || {};
+  const nombre = (cita.pac_nombre||pac.nombre||'').split(' ')[0] || 'Hola';
+  const fechaNat = fmtFechaNatural(cita.fecha);
+  return `¡Hola ${nombre}! 🌿 Le recordamos su cita en BAOQI Centro de Bienestar Integral.\n\n📅 ${fechaNat}\n🕐 ${cita.hora} hrs\n📍 Playa Bonita 20, Jardines de Morelos, Ecatepec\n\nLe pedimos llegar puntual y con ropa cómoda. Si necesita reagendar, respóndanos por aquí. ¡Le esperamos! 😊`;
+}
+
+function fmtFechaNatural(iso) {
+  const dias=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const d=new Date(iso+'T12:00:00');
+  return `${dias[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]}`;
+}
+
+// Normaliza teléfono a formato Evolution (52 + 10 dígitos)
+function telParaEvolution(tel) {
+  let t = (tel||'').replace(/[^0-9]/g,'');
+  t = t.slice(-10); // últimos 10 dígitos
+  return '52' + t;  // código de México
+}
+
+// Envío individual a Evolution API
+async function enviarWhatsApp(numero, mensaje) {
+  const url = `${EVO_URL}/message/sendText/${EVO_INSTANCIA}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': EVO_APIKEY
+    },
+    body: JSON.stringify({
+      number: numero,
+      text: mensaje
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  return res.json();
+}
+
+// Enviar UNO manualmente (botón individual, sin cola)
+async function enviarUnoManual(i) {
+  const cita = REC_CITAS[i];
+  const pac = PACS.find(p=>p.id===cita.pac_id) || {};
+  const tel = cita.tel_contacto || pac.tel || '';
+  if (!tel) { toast('⚠ Este paciente no tiene teléfono'); return; }
+  cita._rec_estado = 'enviando'; renderRecordatorios();
+  try {
+    await enviarWhatsApp(telParaEvolution(tel), armarMensajeRecordatorio(cita));
+    cita._rec_estado = 'enviado';
+    toast('✓ Recordatorio enviado a '+(cita.pac_nombre||pac.nombre));
+  } catch(e) {
+    cita._rec_estado = 'error';
+    toast('⚠ Error al enviar: '+e.message);
+  }
+  renderRecordatorios();
+}
+
+// Iniciar la COLA de envíos cada 3 minutos
+function iniciarEnvioRecordatorios() {
+  const pendientes = REC_CITAS.filter(c => {
+    const pac = PACS.find(p=>p.id===c.pac_id)||{};
+    const tel = c.tel_contacto || pac.tel || '';
+    return tel && c._rec_estado !== 'enviado';
+  });
+  if (!pendientes.length) { toast('No hay recordatorios pendientes por enviar'); return; }
+  if (!confirm(`Se enviarán ${pendientes.length} recordatorios, uno cada 3 minutos.\n\nTiempo estimado: ${(pendientes.length-1)*3} minutos.\nMantén esta pestaña abierta. ¿Continuar?`)) return;
+
+  REC_ENVIANDO = true;
+  REC_INDICE = 0;
+  document.getElementById('rec-btn-enviar').style.display = 'none';
+  document.getElementById('rec-btn-detener').style.display = 'inline-flex';
+  document.getElementById('rec-progreso').style.display = 'block';
+  enviarSiguienteEnCola();
+}
+
+async function enviarSiguienteEnCola() {
+  if (!REC_ENVIANDO) return;
+  // Buscar la siguiente cita pendiente con teléfono
+  const cola = REC_CITAS.filter(c => {
+    const pac = PACS.find(p=>p.id===c.pac_id)||{};
+    const tel = c.tel_contacto || pac.tel || '';
+    return tel && c._rec_estado !== 'enviado' && c._rec_estado !== 'error';
+  });
+  const total = REC_CITAS.filter(c=>{
+    const pac=PACS.find(p=>p.id===c.pac_id)||{};
+    return (c.tel_contacto||pac.tel);
+  }).length;
+  const enviados = REC_CITAS.filter(c=>c._rec_estado==='enviado').length;
+
+  if (!cola.length) {
+    // Terminó
+    finalizarEnvio();
+    document.getElementById('rec-progreso-txt').textContent = '✓ Todos los recordatorios enviados';
+    document.getElementById('rec-progreso-cont').textContent = `${enviados}/${total}`;
+    document.getElementById('rec-progreso-barra').style.width = '100%';
+    document.getElementById('rec-siguiente').textContent = '';
+    toast('✓ Envío completado: '+enviados+' recordatorios');
+    return;
+  }
+
+  const cita = cola[0];
+  const pac = PACS.find(p=>p.id===cita.pac_id) || {};
+  const tel = cita.tel_contacto || pac.tel || '';
+
+  cita._rec_estado = 'enviando';
+  renderRecordatorios();
+  document.getElementById('rec-progreso-txt').textContent = `Enviando a ${cita.pac_nombre||pac.nombre}...`;
+  document.getElementById('rec-progreso-cont').textContent = `${enviados}/${total}`;
+  document.getElementById('rec-progreso-barra').style.width = Math.round(enviados/total*100)+'%';
+
+  try {
+    await enviarWhatsApp(telParaEvolution(tel), armarMensajeRecordatorio(cita));
+    cita._rec_estado = 'enviado';
+  } catch(e) {
+    cita._rec_estado = 'error';
+    toast('⚠ Error con '+(cita.pac_nombre||pac.nombre)+': '+e.message);
+  }
+  renderRecordatorios();
+
+  // ¿Quedan más? Programar el siguiente en 3 minutos
+  const restantes = REC_CITAS.filter(c => {
+    const p = PACS.find(x=>x.id===c.pac_id)||{};
+    const t = c.tel_contacto || p.tel || '';
+    return t && c._rec_estado !== 'enviado' && c._rec_estado !== 'error';
+  });
+
+  if (restantes.length && REC_ENVIANDO) {
+    // Cuenta regresiva visual
+    let seg = REC_INTERVALO_MS/1000;
+    document.getElementById('rec-siguiente').textContent = `Siguiente envío en ${Math.floor(seg/60)}:${String(seg%60).padStart(2,'0')} min...`;
+    const cuenta = setInterval(()=>{
+      seg--;
+      const el = document.getElementById('rec-siguiente');
+      if(el) el.textContent = `Siguiente envío en ${Math.floor(seg/60)}:${String(seg%60).padStart(2,'0')} min...`;
+      if(seg<=0) clearInterval(cuenta);
+    },1000);
+    REC_TIMER = setTimeout(()=>{ clearInterval(cuenta); enviarSiguienteEnCola(); }, REC_INTERVALO_MS);
+  } else {
+    finalizarEnvio();
+    const en = REC_CITAS.filter(c=>c._rec_estado==='enviado').length;
+    document.getElementById('rec-progreso-txt').textContent = '✓ Envío finalizado';
+    document.getElementById('rec-progreso-barra').style.width = '100%';
+    document.getElementById('rec-siguiente').textContent = '';
+    toast('✓ Envío completado: '+en+' recordatorios');
+  }
+}
+
+function detenerEnvio() {
+  if (REC_TIMER) clearTimeout(REC_TIMER);
+  finalizarEnvio();
+  toast('Envío detenido');
+  document.getElementById('rec-progreso-txt').textContent = 'Envío detenido';
+  document.getElementById('rec-siguiente').textContent = '';
+}
+
+function finalizarEnvio() {
+  REC_ENVIANDO = false;
+  if (REC_TIMER) { clearTimeout(REC_TIMER); REC_TIMER = null; }
+  document.getElementById('rec-btn-enviar').style.display = 'inline-flex';
+  document.getElementById('rec-btn-detener').style.display = 'none';
 }
