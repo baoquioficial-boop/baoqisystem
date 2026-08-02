@@ -910,6 +910,17 @@ function abrirInscribir(cursoId) {
   document.getElementById('ins-anticipo').value = c.anticipo||'';
   document.getElementById('ins-resto').value = fmtM((c.precio||0)-(c.anticipo||0));
   document.getElementById('ins-resultados').style.display='none';
+  // Aviso si es paquete
+  const aviso = document.getElementById('ins-aviso-paquete');
+  if (aviso) {
+    if (c.es_paquete) {
+      const incluidos = (c.cursos_incluidos||[]).length || 4;
+      aviso.style.display = 'block';
+      aviso.innerHTML = `<i class="ti ti-package"></i> Este es el paquete completo. Al inscribir se apartará el lugar en los ${incluidos} cursos automáticamente, con pago único de ${fmtM(c.precio||0)}.`;
+    } else {
+      aviso.style.display = 'none';
+    }
+  }
   om('inscribir');
 }
 
@@ -950,12 +961,31 @@ async function guardarInscripcion() {
   const nombre = document.getElementById('ins-nombre').value.trim();
   const tel = document.getElementById('ins-tel').value.trim();
   if(!nombre){toast('⚠ El nombre es obligatorio');return;}
-
-  // Verificar cupo
-  if(inscritosDe(cursoId).length >= c.cupo){toast('⚠ El curso ya está lleno');return;}
-
   const anticipo = parseFloat(document.getElementById('ins-anticipo').value)||0;
   const telNorm = tel.replace(/[^0-9]/g,'').slice(-10);
+
+  // ---- Si es PAQUETE: usar la función que inscribe en los 4 cursos ----
+  if (c.es_paquete) {
+    try {
+      const r = await sb('inscribir_paquete','POST',{
+        p_paquete_id: cursoId,
+        p_nombre: nombre,
+        p_tel: telNorm,
+        p_anticipo: anticipo,
+        p_notas: document.getElementById('ins-notas').value
+      },'');
+      const res = Array.isArray(r) ? (r[0]?.inscribir_paquete || r[0]) : (r.inscribir_paquete || r);
+      if (res && res.ok === false) { toast('⚠ '+res.mensaje); return; }
+      // Recargar inscripciones para reflejar los 4 cursos + el paquete
+      await cargarCursos();
+      cm('inscribir'); renderCursos();
+      toast('✓ '+(res?.mensaje || nombre+' inscrito en el paquete'));
+    } catch(e){ toast('⚠ Error: '+e.message); }
+    return;
+  }
+
+  // ---- Inscripción normal a un solo curso ----
+  if(inscritosDe(cursoId).length >= c.cupo){toast('⚠ El curso ya está lleno');return;}
 
   // Buscar/crear alumno
   let pac = insAlumnoSel;
