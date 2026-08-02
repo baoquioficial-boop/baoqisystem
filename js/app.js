@@ -84,7 +84,7 @@ function gp(page,el) {
   if(page==='rep') renderReporte();
   if(page==='exp') renderExp();
   if(page==='admin') renderAdmin();
-  if(page==='cursos') renderCursos();
+  if(page==='cursos'){ if(!CURSOS.length){ cargarCursos().then(renderCursos); } else { renderCursos(); } }
   if(page==='dashboard') renderDashboard();
   if(page==='crm') renderCRM();
   if(page==='inscripciones') renderInscripciones();
@@ -774,14 +774,15 @@ async function desbloquearDia(fecha, id) {
 let CURSOS = [], INSCRIPCIONES = [], insAlumnoSel = null;
 
 async function cargarCursos() {
+  // Cargar por separado para que si una tabla falla, la otra siga funcionando
   try {
-    [CURSOS, INSCRIPCIONES] = await Promise.all([
-      sb('cursos','GET',null,'?order=fecha_inicio.asc'),
-      sb('inscripciones','GET',null,'?order=created_at.desc'),
-    ]);
-    const nb = document.getElementById('nb-cursos');
-    if (nb) nb.textContent = CURSOS.filter(c=>c.activo).length;
-  } catch(e) { CURSOS=[]; INSCRIPCIONES=[]; }
+    CURSOS = await sb('cursos','GET',null,'?order=fecha_inicio.asc') || [];
+  } catch(e) { CURSOS = []; }
+  try {
+    INSCRIPCIONES = await sb('inscripciones','GET',null,'?order=created_at.desc') || [];
+  } catch(e) { INSCRIPCIONES = []; }
+  const nb = document.getElementById('nb-cursos');
+  if (nb) nb.textContent = CURSOS.filter(c=>c.activo).length;
 }
 
 function inscritosDe(cursoId) {
