@@ -36,31 +36,29 @@ function qPacientes() { return ''; }
 
 /* ============ CARGA CON FILTRO ============ */
 async function cargarTodo() {
-  try {
-    [PACS, CITAS, COBROS, NOTAS, DIAS_BLOQUEADOS] = await Promise.all([
-      sb('pacientes','GET',null,`?order=created_at.desc${qPacientes()}`),
-      sb('citas','GET',null,`?order=fecha.asc,hora.asc${qDoctor()}`),
-      sb('cobros','GET',null,`?order=created_at.desc${qDoctor()}`),
-      sb('notas_soap','GET',null,`?order=created_at.desc${qDoctor()}`),
-      sb('dias_bloqueados','GET',null,'?order=fecha.asc'),
-    ]);
-    // Admin: mostrar filtro por doctor en reportes
-    const filtroDocEl = document.getElementById('rep-doctor-fil');
-    if (filtroDocEl) {
-      filtroDocEl.style.display = esAdmin() ? 'block' : 'none';
-      filtroDocEl.innerHTML = '<option value="">Todos los doctores</option>' +
-        DOCS.map(d=>`<option value="${d.id}">${d.nombre}</option>`).join('');
-      filtroDocEl.addEventListener('change', renderReporte);
-    }
-    // Columna doctor en reportes: visible solo para admin
-    const thDoc = document.getElementById('th-doctor-rep');
-    if (thDoc) thDoc.style.display = esAdmin() ? '' : 'none';
+  // Cargar cada tabla por separado: si una falla, las demás siguen cargando
+  try { PACS = await sb('pacientes','GET',null,`?order=created_at.desc${qPacientes()}`) || []; } catch(e){ PACS=[]; }
+  try { CITAS = await sb('citas','GET',null,`?order=fecha.asc,hora.asc${qDoctor()}`) || []; } catch(e){ CITAS=[]; }
+  try { COBROS = await sb('cobros','GET',null,`?order=created_at.desc${qDoctor()}`) || []; } catch(e){ COBROS=[]; }
+  try { NOTAS = await sb('notas_soap','GET',null,`?order=created_at.desc${qDoctor()}`) || []; } catch(e){ NOTAS=[]; }
+  try { DIAS_BLOQUEADOS = await sb('dias_bloqueados','GET',null,'?order=fecha.asc') || []; } catch(e){ DIAS_BLOQUEADOS=[]; }
 
-    actualizarBadges();
-    renderAgenda();
-    // Cargar cursos y panel admin solo si es admin
-    if (esAdmin()) { cargarCursos(); cargarPanelAdmin(); }
-  } catch(e) { toast('⚠ Error al cargar datos'); }
+  // Admin: mostrar filtro por doctor en reportes
+  const filtroDocEl = document.getElementById('rep-doctor-fil');
+  if (filtroDocEl) {
+    filtroDocEl.style.display = esAdmin() ? 'block' : 'none';
+    filtroDocEl.innerHTML = '<option value="">Todos los doctores</option>' +
+      DOCS.map(d=>`<option value="${d.id}">${d.nombre}</option>`).join('');
+    filtroDocEl.addEventListener('change', renderReporte);
+  }
+  const thDoc = document.getElementById('th-doctor-rep');
+  if (thDoc) thDoc.style.display = esAdmin() ? '' : 'none';
+
+  actualizarBadges();
+  renderAgenda();
+  // Cursos, inscripciones, comprobantes y promociones: los ve admin Y doctor
+  cargarCursos();
+  cargarPanelAdmin();
 }
 
 function actualizarBadges() {
@@ -1016,7 +1014,6 @@ function verInscritos(cursoId) {
 let COMPROBANTES = [], PROMOS = [], DASHBOARD = {}, compContactoSel = null;
 
 async function cargarPanelAdmin() {
-  if (!esAdmin()) return;
   try {
     const [comps, promos] = await Promise.all([
       sb('comprobantes','GET',null,'?order=created_at.desc').catch(()=>[]),

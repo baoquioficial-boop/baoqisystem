@@ -101,7 +101,10 @@ async function entrarSistema() {
   document.getElementById('sb-rol').textContent =
     doctorActual.rol === 'admin' ? 'Administrador' : (doctorActual.especialidad || 'Doctor');
 
-  // Menú admin solo para admin
+  // Menú operativo (Cursos, Inscripciones, Comprobantes, Promociones): admin Y doctor
+  const navOperativo = document.getElementById('nav-operativo');
+  if (navOperativo) navOperativo.style.display = 'block';
+  // Menú admin (Dashboard, CRM, Agente IA, Configuración): solo admin
   const navAdmin = document.getElementById('nav-admin');
   if (navAdmin) navAdmin.style.display = doctorActual.rol === 'admin' ? 'block' : 'none';
 
