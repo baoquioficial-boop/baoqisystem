@@ -59,6 +59,7 @@ async function cargarTodo() {
   // Cursos, inscripciones, comprobantes y promociones: los ve admin Y doctor
   cargarCursos();
   cargarPanelAdmin();
+  cargarPausados();
 }
 
 function actualizarBadges() {
@@ -74,7 +75,7 @@ function gp(page,el) {
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('pg-'+page).classList.add('on');
   el.classList.add('on');
-  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA',recordatorios:'Recordatorios'};
+  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA',recordatorios:'Recordatorios',atencion:'Atención WhatsApp'};
   document.getElementById('ptit').textContent=t[page];
   if(page==='agenda') renderAgenda();
   if(page==='pac') renderPacs(PACS);
@@ -90,6 +91,7 @@ function gp(page,el) {
   if(page==='promos') renderPromos();
   if(page==='agente') renderConfigAgente();
   if(page==='recordatorios'){ const rf=document.getElementById('rec-fecha'); if(rf && !rf.value){ rf.value=hoy(); } cargarRecordatorios(); }
+  if(page==='atencion'){ cargarPausados().then(renderPausados); }
 }
 
 function om(id) {
@@ -1728,4 +1730,63 @@ function finalizarEnvio() {
   if (REC_TIMER) { clearTimeout(REC_TIMER); REC_TIMER = null; }
   document.getElementById('rec-btn-enviar').style.display = 'inline-flex';
   document.getElementById('rec-btn-detener').style.display = 'none';
+}
+
+/* ============================================================
+   ATENCIÓN WHATSAPP — contactos pausados
+   ============================================================ */
+let PAUSADOS = [];
+
+async function cargarPausados() {
+  try {
+    PAUSADOS = await sb('contactos_pausados','GET',null,'?pausado=eq.true&order=pausado_desde.desc') || [];
+    const nb = document.getElementById('nb-atencion');
+    if (nb) nb.textContent = PAUSADOS.length;
+  } catch(e) { PAUSADOS = []; }
+}
+
+function telLegible(t) {
+  // Quitar el @s.whatsapp.net y dejar solo dígitos legibles
+  const num = (t||'').replace('@s.whatsapp.net','').replace('@c.us','').replace(/[^0-9]/g,'');
+  return num.slice(-10); // últimos 10 dígitos
+}
+
+function renderPausados() {
+  const tb = document.getElementById('tb-atencion');
+  if (!tb) return;
+  if (!PAUSADOS.length) {
+    tb.innerHTML = '<tr><td colspan="5"><div class="empty"><i class="ti ti-robot"></i>El agente está activo con todos los contactos. Ninguno en atención humana.</div></td></tr>';
+    return;
+  }
+  tb.innerHTML = PAUSADOS.map(p => {
+    const desde = p.pausado_desde ? new Date(p.pausado_desde).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+    return `<tr>
+      <td><div style="display:flex;align-items:center"><div class="av" style="background:var(--aud)"><i class="ti ti-user"></i></div>${p.contacto_nombre||telLegible(p.telefono)}</div></td>
+      <td class="hide-sm">${telLegible(p.telefono)}</td>
+      <td style="font-size:12px;color:var(--text-sec)">${desde}</td>
+      <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--aul);color:var(--aud)"><i class="ti ti-hand-stop"></i> Pausado</span></td>
+      <td><button class="btn btn-sm btn-g" onclick="reactivarContacto('${p.telefono}')"><i class="ti ti-robot"></i> Reactivar</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function reactivarContacto(telefono) {
+  if (!confirm('¿Reactivar el agente para este contacto? El bot volverá a responderle automáticamente.')) return;
+  try {
+    // Llamar la función RPC reactivar_agente
+    await sb('reactivar_agente','POST',{p_telefono:telefono},'');
+    PAUSADOS = PAUSADOS.filter(p => p.telefono !== telefono);
+    renderPausados();
+    const nb = document.getElementById('nb-atencion');
+    if (nb) nb.textContent = PAUSADOS.length;
+    toast('✓ Agente reactivado para este contacto');
+  } catch(e) {
+    // Fallback: update directo
+    try {
+      await sb('contactos_pausados','PATCH',{pausado:false},`?telefono=eq.${encodeURIComponent(telefono)}`);
+      PAUSADOS = PAUSADOS.filter(p => p.telefono !== telefono);
+      renderPausados();
+      toast('✓ Agente reactivado');
+    } catch(e2){ toast('⚠ Error: '+e2.message); }
+  }
 }

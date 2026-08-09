@@ -81,6 +81,9 @@
       </button>
       <div id="nav-operativo" style="display:none">
         <div class="ni-sep"></div>
+        <button class="ni" onclick="gp('atencion',this)">
+          <i class="ti ti-headset"></i><span class="ni-txt">Atención WhatsApp</span><span class="nb" id="nb-atencion">0</span>
+        </button>
         <button class="ni" onclick="gp('cursos',this)">
           <i class="ti ti-school"></i><span class="ni-txt">Cursos</span><span class="nb" id="nb-cursos">0</span>
         </button>
@@ -340,6 +343,27 @@
           </button>
         </div>
         <div id="cursos-lista"></div>
+      </div>
+
+      <!-- ATENCIÓN WHATSAPP (contactos pausados) -->
+      <div class="pg" id="pg-atencion">
+        <div class="sh">
+          <span class="sti"><i class="ti ti-headset" style="color:var(--g);margin-right:6px"></i>Atención humana — WhatsApp</span>
+          <button class="btn btn-sm" onclick="cargarPausados().then(renderPausados)"><i class="ti ti-refresh"></i> Actualizar</button>
+        </div>
+        <div class="info-box"><i class="ti ti-info-circle"></i>Aquí ves los contactos donde el agente está pausado porque alguien del equipo está atendiendo. El agente se pausa solo cuando respondes por WhatsApp. Puedes reactivarlo aquí o el cliente puede escribir "#activar".</div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th>Contacto</th>
+              <th style="width:130px" class="hide-sm">Teléfono</th>
+              <th style="width:110px">Pausado desde</th>
+              <th style="width:90px">Estado</th>
+              <th style="width:110px"></th>
+            </tr></thead>
+            <tbody id="tb-atencion"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- DASHBOARD (solo admin) -->
