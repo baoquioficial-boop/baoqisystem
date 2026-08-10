@@ -83,7 +83,7 @@ function gp(page,el) {
   if(page==='rep') renderReporte();
   if(page==='exp') renderExp();
   if(page==='admin') renderAdmin();
-  if(page==='cursos'){ if(!CURSOS.length){ cargarCursos().then(renderCursos); } else { renderCursos(); } }
+  if(page==='cursos'){ cargarCursos().then(renderCursos); }
   if(page==='dashboard') renderDashboard();
   if(page==='crm') renderCRM();
   if(page==='inscripciones') renderInscripciones();
@@ -1018,25 +1018,88 @@ async function guardarInscripcion() {
 /* ---- Ver inscritos ---- */
 function verInscritos(cursoId) {
   const c = CURSOS.find(x=>x.id===cursoId); if(!c) return;
+  window._inscCursoActual = cursoId;
   document.getElementById('insc-curso-tit').textContent = c.nombre;
   const lista = inscritosDe(cursoId);
   const cont = document.getElementById('insc-lista');
   if(!lista.length){
     cont.innerHTML='<div class="empty"><i class="ti ti-users-off"></i>Sin inscritos todavía</div>';
   } else {
-    cont.innerHTML = lista.map(i=>`
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:.5px solid var(--border)">
-        <div>
-          <div style="font-size:13px;font-weight:500;color:var(--text)">${i.alumno_nombre}</div>
-          <div style="font-size:11px;color:var(--text-ter)">${i.alumno_tel||'sin tel'} · ${i.origen==='whatsapp'?'📱 WhatsApp':'Manual'}</div>
+    cont.innerHTML = lista.map(i=>{
+      const estBg = i.estado==='Pagado'?'var(--gl)':i.estado==='Cursando'?'var(--gl)':i.estado==='Prospecto'?'var(--aul)':'var(--aul)';
+      const estColor = i.estado==='Pagado'?'var(--g)':i.estado==='Cursando'?'var(--g)':'var(--aud)';
+      const resto = Number(i.resto_pendiente||0);
+      return `
+      <div style="padding:12px 0;border-bottom:.5px solid var(--border)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${i.alumno_nombre}</div>
+            <div style="font-size:11px;color:var(--text-ter)">${i.alumno_tel||'sin tel'} · ${i.origen==='whatsapp'?'📱 WhatsApp':'✍️ Manual'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px"><span style="color:var(--g);font-weight:600">Pagó ${fmtM(i.anticipo_pagado||0)}</span>${resto>0?` <span style="color:var(--text-ter)">· falta ${fmtM(resto)}</span>`:''}</div>
+            <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${estBg};color:${estColor}">${i.estado}</span>
+          </div>
         </div>
-        <div style="text-align:right">
-          <div style="font-size:11px"><span style="color:var(--g)">Pagó ${fmtM(i.anticipo_pagado)}</span> ${Number(i.resto_pendiente)>0?`<span style="color:var(--text-ter)">· falta ${fmtM(i.resto_pendiente)}</span>`:''}</div>
-          <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${i.estado==='Pagado'?'var(--gl)':'var(--aul)'};color:${i.estado==='Pagado'?'var(--g)':'var(--aud)'}">${i.estado}</span>
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          ${resto>0?`<button class="btn btn-sm btn-g" onclick="cobrarInscrito('${i.id}')"><i class="ti ti-cash"></i> Cobrar</button>`:'<span style="font-size:11px;color:var(--g);align-self:center"><i class="ti ti-check"></i> Pagado completo</span>'}
+          <button class="btn btn-sm" onclick="editarInscrito('${i.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-sm" onclick="eliminarInscrito('${i.id}')" style="color:#A32D2D"><i class="ti ti-trash"></i></button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
   om('inscritos');
+}
+
+async function cobrarInscrito(inscId) {
+  const i = (INSCRIPCIONES||[]).find(x=>x.id===inscId); if(!i) return;
+  const resto = Number(i.resto_pendiente||0);
+  if(resto<=0){ toast('Esta inscripción ya está pagada'); return; }
+  const abono = prompt(`${i.alumno_nombre}\nFalta por pagar: ${fmtM(resto)}\n\n¿Cuánto abona ahora?`, resto);
+  if(abono===null) return;
+  const monto = parseFloat(abono)||0;
+  if(monto<=0) return;
+  const nuevoAnticipo = Number(i.anticipo_pagado||0)+monto;
+  const nuevoResto = Math.max(0, resto-monto);
+  const nuevoEstado = nuevoResto<=0 ? 'Pagado' : 'Cursando';
+  try {
+    await sb('inscripciones','PATCH',{anticipo_pagado:nuevoAnticipo,resto_pendiente:nuevoResto,estado:nuevoEstado},`?id=eq.${inscId}`);
+    i.anticipo_pagado=nuevoAnticipo; i.resto_pendiente=nuevoResto; i.estado=nuevoEstado;
+    // Registrar el cobro en caja también
+    try {
+      await sb('cobros','POST',{id:uid(),pac_id:i.pac_id,pac_nombre:i.alumno_nombre,concepto:'Curso: '+i.curso_nombre,monto,metodo:'Efectivo',fecha:hoy(),doctor_id:doctorActual?.id,created_at:new Date().toISOString()});
+    } catch(e){}
+    verInscritos(window._inscCursoActual);
+    renderCursos();
+    toast('✓ Cobro registrado: '+fmtM(monto));
+  } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+function editarInscrito(inscId) {
+  const i = (INSCRIPCIONES||[]).find(x=>x.id===inscId); if(!i) return;
+  const nuevoNombre = prompt('Nombre del alumno:', i.alumno_nombre);
+  if(nuevoNombre===null) return;
+  const nuevoTel = prompt('Teléfono:', i.alumno_tel||'');
+  if(nuevoTel===null) return;
+  sb('inscripciones','PATCH',{alumno_nombre:nuevoNombre.trim(),alumno_tel:nuevoTel.trim()},`?id=eq.${inscId}`)
+    .then(()=>{
+      i.alumno_nombre=nuevoNombre.trim(); i.alumno_tel=nuevoTel.trim();
+      verInscritos(window._inscCursoActual);
+      toast('✓ Datos actualizados');
+    }).catch(e=>toast('⚠ Error: '+e.message));
+}
+
+async function eliminarInscrito(inscId) {
+  const i = (INSCRIPCIONES||[]).find(x=>x.id===inscId); if(!i) return;
+  if(!confirm(`¿Eliminar a ${i.alumno_nombre} de este curso?\n\nEsto libera su lugar. No se puede deshacer.`)) return;
+  try {
+    await sb('inscripciones','DELETE',null,`?id=eq.${inscId}`);
+    INSCRIPCIONES = INSCRIPCIONES.filter(x=>x.id!==inscId);
+    verInscritos(window._inscCursoActual);
+    renderCursos();
+    toast('✓ Inscrito eliminado, lugar liberado');
+  } catch(e){ toast('⚠ Error: '+e.message); }
 }
 
 /* ============================================================

@@ -892,16 +892,17 @@
 
 <!-- VER INSCRITOS -->
 <div class="mw" id="m-inscritos">
-  <div class="mo mo-sm">
+  <div class="mo">
     <div class="mh">
       <span class="mht"><i class="ti ti-users" style="color:#2D6A4F;margin-right:5px"></i>Inscritos — <span id="insc-curso-tit">curso</span></span>
       <button class="mx" onclick="cm('inscritos')"><i class="ti ti-x"></i></button>
     </div>
-    <div class="mb">
+    <div class="mb" style="max-height:60vh;overflow-y:auto">
       <div id="insc-lista"></div>
     </div>
     <div class="mf">
       <button class="btn" onclick="cm('inscritos')">Cerrar</button>
+      <button class="btn btn-g" onclick="cm('inscritos');abrirInscribir(window._inscCursoActual)"><i class="ti ti-user-plus"></i> Inscribir a alguien</button>
     </div>
   </div>
 </div>
