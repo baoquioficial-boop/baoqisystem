@@ -60,6 +60,7 @@ async function cargarTodo() {
   cargarCursos();
   cargarPanelAdmin();
   cargarPausados();
+  cargarInteresados();
 }
 
 function actualizarBadges() {
@@ -75,7 +76,7 @@ function gp(page,el) {
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('pg-'+page).classList.add('on');
   el.classList.add('on');
-  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos de herbolaria',dorados:'Jueves Dorados',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA',recordatorios:'Recordatorios',atencion:'Atención WhatsApp'};
+  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos de herbolaria',dorados:'Jueves Dorados',interesados:'Interesados',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA',recordatorios:'Recordatorios',atencion:'Atención WhatsApp'};
   document.getElementById('ptit').textContent=t[page];
   if(page==='agenda') renderAgenda();
   if(page==='pac') renderPacs(PACS);
@@ -85,6 +86,7 @@ function gp(page,el) {
   if(page==='admin') renderAdmin();
   if(page==='cursos'){ cargarCursos().then(renderCursos); }
   if(page==='dorados'){ cargarCursos().then(renderDorados); }
+  if(page==='interesados'){ cargarInteresados().then(renderInteresados); }
   if(page==='dashboard') renderDashboard();
   if(page==='crm') renderCRM();
   if(page==='inscripciones') renderInscripciones();
@@ -1885,4 +1887,91 @@ async function reactivarContacto(telefono) {
       toast('✓ Agente reactivado');
     } catch(e2){ toast('⚠ Error: '+e2.message); }
   }
+}
+
+/* ============================================================
+   INTERESADOS — preguntaron por cursos, para seguimiento manual
+   ============================================================ */
+let INTERESADOS = [];
+
+async function cargarInteresados() {
+  try {
+    INTERESADOS = await sb('interesados','GET',null,'?order=ultimo_contacto.desc') || [];
+    const nb = document.getElementById('nb-interesados');
+    if (nb) nb.textContent = INTERESADOS.filter(i=>i.estado==='Nuevo').length;
+  } catch(e) { INTERESADOS = []; }
+}
+
+function telLegibleInt(t) {
+  return (t||'').replace('@s.whatsapp.net','').replace('@c.us','').replace(/[^0-9]/g,'').slice(-10);
+}
+
+function renderInteresados() {
+  const filtro = document.getElementById('int-filtro')?.value || '';
+  let lista = INTERESADOS.slice();
+  if (filtro) lista = lista.filter(i=>i.estado===filtro);
+
+  // Métricas
+  document.getElementById('int-nuevos').textContent = INTERESADOS.filter(i=>i.estado==='Nuevo').length;
+  document.getElementById('int-contactados').textContent = INTERESADOS.filter(i=>i.estado==='Contactado').length;
+  document.getElementById('int-convertidos').textContent = INTERESADOS.filter(i=>i.estado==='Convertido').length;
+  document.getElementById('int-total').textContent = INTERESADOS.length;
+
+  const tb = document.getElementById('tb-interesados');
+  if (!lista.length) {
+    tb.innerHTML = '<tr><td colspan="5"><div class="empty"><i class="ti ti-user-search"></i>Sin interesados en esta vista</div></td></tr>';
+    return;
+  }
+  tb.innerHTML = lista.map(i=>{
+    const tel = telLegibleInt(i.telefono);
+    const estBg = i.estado==='Nuevo'?'var(--aul)':i.estado==='Convertido'?'var(--gl)':i.estado==='Descartado'?'#FCEBEB':'var(--bg-sec)';
+    const estColor = i.estado==='Nuevo'?'var(--aud)':i.estado==='Convertido'?'var(--g)':i.estado==='Descartado'?'#A32D2D':'var(--text-ter)';
+    const interesLabel = i.interes==='jueves_dorados' ? '☀️ Jueves Dorados' : (i.interes==='curso'?'🌿 Curso herbolaria':i.interes||'—');
+    const fecha = i.primer_contacto ? new Date(i.primer_contacto).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '—';
+    // Link de WhatsApp para contactar directo desde recepción
+    const waLink = `https://wa.me/52${tel}`;
+    return `<tr>
+      <td style="font-family:monospace;font-size:12px">${tel}</td>
+      <td>
+        <div style="font-size:13px;font-weight:500">${i.nombre||'<span style="color:var(--text-ter)">Sin nombre</span>'}</div>
+        <div style="font-size:11px;color:var(--text-ter)">${interesLabel}${i.detalle&&i.detalle!=='Rescatado del historial de chat'?' · '+i.detalle:''}</div>
+      </td>
+      <td class="hide-sm" style="font-size:12px;color:var(--text-sec)">${fecha}</td>
+      <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${estBg};color:${estColor}">${i.estado}</span></td>
+      <td style="white-space:nowrap">
+        <a href="${waLink}" target="_blank" class="btn btn-sm btn-g" style="text-decoration:none" title="Abrir WhatsApp"><i class="ti ti-brand-whatsapp"></i></a>
+        <button class="ra" onclick="cambiarEstadoInteresado('${i.id}')" title="Cambiar estado"><i class="ti ti-check"></i></button>
+        <button class="ra" onclick="editarInteresado('${i.id}')" title="Editar"><i class="ti ti-edit"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function cambiarEstadoInteresado(id) {
+  const i = INTERESADOS.find(x=>x.id===id); if(!i) return;
+  const estados = ['Nuevo','Contactado','Convertido','Descartado'];
+  const actual = estados.indexOf(i.estado);
+  const siguiente = estados[(actual+1)%estados.length];
+  try {
+    await sb('interesados','PATCH',{estado:siguiente,contactado:siguiente!=='Nuevo'},`?id=eq.${id}`);
+    i.estado = siguiente; i.contactado = siguiente!=='Nuevo';
+    renderInteresados();
+    const nb = document.getElementById('nb-interesados');
+    if (nb) nb.textContent = INTERESADOS.filter(x=>x.estado==='Nuevo').length;
+    toast('Estado: '+siguiente);
+  } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+async function editarInteresado(id) {
+  const i = INTERESADOS.find(x=>x.id===id); if(!i) return;
+  const nombre = prompt('Nombre del interesado:', i.nombre||'');
+  if(nombre===null) return;
+  const notas = prompt('Notas de seguimiento:', i.notas||'');
+  if(notas===null) return;
+  try {
+    await sb('interesados','PATCH',{nombre:nombre.trim(),notas:notas.trim()},`?id=eq.${id}`);
+    i.nombre=nombre.trim(); i.notas=notas.trim();
+    renderInteresados();
+    toast('✓ Actualizado');
+  } catch(e){ toast('⚠ Error: '+e.message); }
 }

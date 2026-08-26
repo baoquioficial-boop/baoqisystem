@@ -90,6 +90,9 @@
         <button class="ni" onclick="gp('dorados',this)">
           <i class="ti ti-sun"></i><span class="ni-txt">Jueves Dorados</span><span class="nb" id="nb-dorados">0</span>
         </button>
+        <button class="ni" onclick="gp('interesados',this)">
+          <i class="ti ti-user-search"></i><span class="ni-txt">Interesados</span><span class="nb" id="nb-interesados">0</span>
+        </button>
         <button class="ni" onclick="gp('inscripciones',this)">
           <i class="ti ti-clipboard-list"></i><span class="ni-txt">Inscripciones</span>
         </button>
@@ -358,6 +361,42 @@
         </div>
         <div class="info-box"><i class="ti ti-info-circle"></i>Programa de bienestar para adultos de 55 años y más. Jueves de 10:00 a 13:00 hrs. Incluye pláticas de salud, convivencia, Qigong y auriculoterapia. $100 por sesión.</div>
         <div id="dorados-lista"></div>
+      </div>
+
+      <!-- INTERESADOS (preguntaron por cursos, para seguimiento) -->
+      <div class="pg" id="pg-interesados">
+        <div class="sh">
+          <span class="sti"><i class="ti ti-user-search" style="color:var(--g);margin-right:6px"></i>Interesados en cursos y Jueves Dorados</span>
+          <div style="display:flex;gap:6px">
+            <select class="fs" id="int-filtro" onchange="renderInteresados()" style="font-size:12px;padding:6px 10px;width:auto">
+              <option value="">Todos</option>
+              <option value="Nuevo">Nuevos</option>
+              <option value="Contactado">Contactados</option>
+              <option value="Convertido">Convertidos</option>
+              <option value="Descartado">Descartados</option>
+            </select>
+            <button class="btn btn-sm" onclick="cargarInteresados().then(renderInteresados)"><i class="ti ti-refresh"></i></button>
+          </div>
+        </div>
+        <div class="info-box"><i class="ti ti-info-circle"></i>Personas que preguntaron por cursos o Jueves Dorados por WhatsApp pero no han apartado lugar. Contáctalos desde recepción para dar seguimiento. Marca "Contactado" cuando ya les hayas escrito.</div>
+        <div class="sg">
+          <div class="sc sc-g"><div class="slb">Nuevos por contactar</div><div class="sv" id="int-nuevos">0</div></div>
+          <div class="sc"><div class="slb">Contactados</div><div class="sv" id="int-contactados">0</div></div>
+          <div class="sc sc-a"><div class="slb">Convertidos</div><div class="sv" id="int-convertidos">0</div></div>
+          <div class="sc"><div class="slb">Total interesados</div><div class="sv" id="int-total">0</div></div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th style="width:120px">Teléfono</th>
+              <th>Nombre / Interés</th>
+              <th style="width:100px" class="hide-sm">Primer contacto</th>
+              <th style="width:95px">Estado</th>
+              <th style="width:150px"></th>
+            </tr></thead>
+            <tbody id="tb-interesados"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- ATENCIÓN WHATSAPP (contactos pausados) -->
