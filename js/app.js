@@ -75,7 +75,7 @@ function gp(page,el) {
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('pg-'+page).classList.add('on');
   el.classList.add('on');
-  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA',recordatorios:'Recordatorios',atencion:'Atención WhatsApp'};
+  const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos de herbolaria',dorados:'Jueves Dorados',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA',recordatorios:'Recordatorios',atencion:'Atención WhatsApp'};
   document.getElementById('ptit').textContent=t[page];
   if(page==='agenda') renderAgenda();
   if(page==='pac') renderPacs(PACS);
@@ -84,6 +84,7 @@ function gp(page,el) {
   if(page==='exp') renderExp();
   if(page==='admin') renderAdmin();
   if(page==='cursos'){ cargarCursos().then(renderCursos); }
+  if(page==='dorados'){ cargarCursos().then(renderDorados); }
   if(page==='dashboard') renderDashboard();
   if(page==='crm') renderCRM();
   if(page==='inscripciones') renderInscripciones();
@@ -782,61 +783,91 @@ async function cargarCursos() {
     INSCRIPCIONES = await sb('inscripciones','GET',null,'?order=created_at.desc') || [];
   } catch(e) { INSCRIPCIONES = []; }
   const nb = document.getElementById('nb-cursos');
-  if (nb) nb.textContent = CURSOS.filter(c=>c.activo).length;
+  if (nb) nb.textContent = CURSOS.filter(c=>c.activo && !esDorado(c)).length;
+  const nbd = document.getElementById('nb-dorados');
+  if (nbd) nbd.textContent = CURSOS.filter(c=>c.activo && esDorado(c)).length;
 }
 
 function inscritosDe(cursoId) {
   return INSCRIPCIONES.filter(i => i.curso_id===cursoId && i.estado!=='Cancelado');
 }
 
+function tarjetaCurso(c) {
+  const inscritos = inscritosDe(c.id).length;
+  const lugares = (c.cupo||0) - inscritos;
+  const lleno = lugares <= 0;
+  const totalAnticipos = inscritosDe(c.id).reduce((s,i)=>s+Number(i.anticipo_pagado||0),0);
+  return `
+  <div style="background:white;border:.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;${!c.activo?'opacity:.6;':''}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:15px;font-weight:600;color:var(--text)">${c.nombre}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${c.modalidad==='En línea'?'#E6F1FB':'var(--gl)'};color:${c.modalidad==='En línea'?'#185FA5':'var(--g)'}">${c.modalidad||'Presencial'}</span>
+          ${!c.activo?'<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#FCEBEB;color:#A32D2D">Inactivo</span>':''}
+        </div>
+        ${c.descripcion?`<div style="font-size:12px;color:var(--text-sec);margin-top:4px">${c.descripcion}</div>`:''}
+        <div style="font-size:11px;color:var(--text-ter);margin-top:6px;display:flex;gap:14px;flex-wrap:wrap">
+          ${c.fecha_inicio?`<span><i class="ti ti-calendar" style="vertical-align:-1px"></i> ${fmtF(c.fecha_inicio)}</span>`:''}
+          ${c.horario?`<span><i class="ti ti-clock" style="vertical-align:-1px"></i> ${c.horario}</span>`:''}
+          ${c.instructor?`<span><i class="ti ti-user" style="vertical-align:-1px"></i> ${c.instructor}</span>`:''}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:18px;font-weight:600;color:var(--g)">${fmtM(c.precio||0)}</div>
+        ${Number(c.anticipo)>0?`<div style="font-size:10px;color:var(--text-ter)">anticipo ${fmtM(c.anticipo||0)}</div>`:''}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:.5px solid var(--border)">
+      <div style="display:flex;gap:14px;align-items:center">
+        <span style="font-size:12px;color:${lleno?'#A32D2D':'var(--g)'};font-weight:500">
+          <i class="ti ti-users" style="vertical-align:-1px"></i> ${inscritos}/${c.cupo} ${lleno?'(lleno)':`· ${lugares} libre${lugares!==1?'s':''}`}
+        </span>
+        <span style="font-size:11px;color:var(--text-ter)">Anticipos: ${fmtM(totalAnticipos)}</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="verInscritos('${c.id}')"><i class="ti ti-list"></i> Ver</button>
+        <button class="btn btn-sm" onclick="editarCurso('${c.id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-g" ${lleno?'disabled style="opacity:.5"':''} onclick="abrirInscribir('${c.id}')"><i class="ti ti-user-plus"></i> Inscribir</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function esDorado(c){ return (c.categoria==='jueves_dorados') || /jueves dorados/i.test(c.nombre||''); }
+
 function renderCursos() {
   const cont = document.getElementById('cursos-lista');
   if (!cont) return;
-  if (!CURSOS.length) {
+  const lista = CURSOS.filter(c=>!esDorado(c));  // solo herbolaria
+  if (!lista.length) {
     cont.innerHTML = '<div class="empty"><i class="ti ti-school-off"></i>Aún no hay cursos. Crea el primero con "Nuevo curso".</div>';
     return;
   }
-  cont.innerHTML = CURSOS.map(c => {
-    const inscritos = inscritosDe(c.id).length;
-    const lugares = (c.cupo||0) - inscritos;
-    const lleno = lugares <= 0;
-    const totalAnticipos = inscritosDe(c.id).reduce((s,i)=>s+Number(i.anticipo_pagado||0),0);
-    return `
-    <div style="background:white;border:.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;${!c.activo?'opacity:.6;':''}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-size:15px;font-weight:600;color:var(--text)">${c.nombre}</span>
-            <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${c.modalidad==='En línea'?'#E6F1FB':'var(--gl)'};color:${c.modalidad==='En línea'?'#185FA5':'var(--g)'}">${c.modalidad||'Presencial'}</span>
-            ${!c.activo?'<span style="font-size:10px;padding:2px 8px;border-radius:8px;background:#FCEBEB;color:#A32D2D">Inactivo</span>':''}
-          </div>
-          ${c.descripcion?`<div style="font-size:12px;color:var(--text-sec);margin-top:4px">${c.descripcion}</div>`:''}
-          <div style="font-size:11px;color:var(--text-ter);margin-top:6px;display:flex;gap:14px;flex-wrap:wrap">
-            ${c.fecha_inicio?`<span><i class="ti ti-calendar" style="vertical-align:-1px"></i> ${fmtF(c.fecha_inicio)}</span>`:''}
-            ${c.horario?`<span><i class="ti ti-clock" style="vertical-align:-1px"></i> ${c.horario}</span>`:''}
-            ${c.instructor?`<span><i class="ti ti-user" style="vertical-align:-1px"></i> ${c.instructor}</span>`:''}
-          </div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:18px;font-weight:600;color:var(--g)">${fmtM(c.precio||0)}</div>
-          <div style="font-size:10px;color:var(--text-ter)">anticipo ${fmtM(c.anticipo||0)}</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:.5px solid var(--border)">
-        <div style="display:flex;gap:14px;align-items:center">
-          <span style="font-size:12px;color:${lleno?'#A32D2D':'var(--g)'};font-weight:500">
-            <i class="ti ti-users" style="vertical-align:-1px"></i> ${inscritos}/${c.cupo} ${lleno?'(lleno)':`· ${lugares} libre${lugares!==1?'s':''}`}
-          </span>
-          <span style="font-size:11px;color:var(--text-ter)">Anticipos: ${fmtM(totalAnticipos)}</span>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-sm" onclick="verInscritos('${c.id}')"><i class="ti ti-list"></i> Ver</button>
-          <button class="btn btn-sm" onclick="editarCurso('${c.id}')"><i class="ti ti-edit"></i></button>
-          <button class="btn btn-sm btn-g" ${lleno?'disabled style="opacity:.5"':''} onclick="abrirInscribir('${c.id}')"><i class="ti ti-user-plus"></i> Inscribir</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  cont.innerHTML = lista.map(tarjetaCurso).join('');
+}
+
+function renderDorados() {
+  const cont = document.getElementById('dorados-lista');
+  if (!cont) return;
+  const lista = CURSOS.filter(esDorado);
+  const nb = document.getElementById('nb-dorados');
+  if (nb) nb.textContent = lista.filter(c=>c.activo).length;
+  if (!lista.length) {
+    cont.innerHTML = '<div class="empty"><i class="ti ti-sun-off"></i>Aún no hay módulos de Jueves Dorados. Crea el primero con "Nuevo módulo".</div>';
+    return;
+  }
+  cont.innerHTML = lista.map(tarjetaCurso).join('');
+}
+
+function abrirNuevoDorado() {
+  abrirNuevoCurso();
+  document.getElementById('curso-modal-tit').textContent = 'Nuevo módulo — Jueves Dorados';
+  // Prellenar valores típicos de Jueves Dorados
+  const h=document.getElementById('cur-horario'); if(h) h.value='Jueves 10:00-13:00';
+  const p=document.getElementById('cur-precio'); if(p) p.value=100;
+  const cup=document.getElementById('cur-cupo'); if(cup) cup.value=30;
+  window._nuevoDorado = true;
 }
 
 function abrirNuevoCurso() {
@@ -893,12 +924,14 @@ async function guardarCurso() {
     } else {
       datos.id = uid();
       datos.creado_por = doctorActual?.nombre||'';
+      datos.categoria = window._nuevoDorado ? 'jueves_dorados' : 'herbolaria';
+      window._nuevoDorado = false;
       await sb('cursos','POST',datos);
       CURSOS.push(datos);
       toast('✓ Curso creado');
     }
-    cm('curso'); renderCursos();
-    document.getElementById('nb-cursos').textContent = CURSOS.filter(c=>c.activo).length;
+    cm('curso'); renderCursos(); renderDorados();
+    document.getElementById('nb-cursos').textContent = CURSOS.filter(c=>c.activo && !esDorado(c)).length;
   } catch(e){toast('⚠ Error: '+e.message);}
 }
 

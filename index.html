@@ -87,6 +87,9 @@
         <button class="ni" onclick="gp('cursos',this)">
           <i class="ti ti-school"></i><span class="ni-txt">Cursos</span><span class="nb" id="nb-cursos">0</span>
         </button>
+        <button class="ni" onclick="gp('dorados',this)">
+          <i class="ti ti-sun"></i><span class="ni-txt">Jueves Dorados</span><span class="nb" id="nb-dorados">0</span>
+        </button>
         <button class="ni" onclick="gp('inscripciones',this)">
           <i class="ti ti-clipboard-list"></i><span class="ni-txt">Inscripciones</span>
         </button>
@@ -337,12 +340,24 @@
       <!-- CURSOS (solo admin) -->
       <div class="pg" id="pg-cursos">
         <div class="sh">
-          <span class="sti"><i class="ti ti-school" style="color:var(--g);margin-right:6px"></i>Cursos y talleres</span>
+          <span class="sti"><i class="ti ti-school" style="color:var(--g);margin-right:6px"></i>Cursos de herbolaria</span>
           <button class="btn btn-g btn-sm" onclick="abrirNuevoCurso()">
             <i class="ti ti-plus"></i> Nuevo curso
           </button>
         </div>
         <div id="cursos-lista"></div>
+      </div>
+
+      <!-- JUEVES DORADOS (programa adultos 55+) -->
+      <div class="pg" id="pg-dorados">
+        <div class="sh">
+          <span class="sti"><i class="ti ti-sun" style="color:var(--au);margin-right:6px"></i>Jueves Dorados — Adultos 55+</span>
+          <button class="btn btn-g btn-sm" onclick="abrirNuevoDorado()">
+            <i class="ti ti-plus"></i> Nuevo módulo
+          </button>
+        </div>
+        <div class="info-box"><i class="ti ti-info-circle"></i>Programa de bienestar para adultos de 55 años y más. Jueves de 10:00 a 13:00 hrs. Incluye pláticas de salud, convivencia, Qigong y auriculoterapia. $100 por sesión.</div>
+        <div id="dorados-lista"></div>
       </div>
 
       <!-- ATENCIÓN WHATSAPP (contactos pausados) -->
