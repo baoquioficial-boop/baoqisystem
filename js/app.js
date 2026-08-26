@@ -852,11 +852,11 @@ function renderCursos() {
 function renderDorados() {
   const cont = document.getElementById('dorados-lista');
   if (!cont) return;
-  const lista = CURSOS.filter(esDorado);
+  const lista = CURSOS.filter(esDorado).sort((a,b)=>(a.fecha_inicio||'').localeCompare(b.fecha_inicio||''));
   const nb = document.getElementById('nb-dorados');
   if (nb) nb.textContent = lista.filter(c=>c.activo).length;
   if (!lista.length) {
-    cont.innerHTML = '<div class="empty"><i class="ti ti-sun-off"></i>Aún no hay módulos de Jueves Dorados. Crea el primero con "Nuevo módulo".</div>';
+    cont.innerHTML = '<div class="empty"><i class="ti ti-sun-off"></i>Aún no hay sesiones de Jueves Dorados. Crea la primera con "Nueva sesión".</div>';
     return;
   }
   cont.innerHTML = lista.map(tarjetaCurso).join('');
@@ -864,7 +864,7 @@ function renderDorados() {
 
 function abrirNuevoDorado() {
   abrirNuevoCurso();
-  document.getElementById('curso-modal-tit').textContent = 'Nuevo módulo — Jueves Dorados';
+  document.getElementById('curso-modal-tit').textContent = 'Nueva sesión — Jueves Dorados';
   // Prellenar valores típicos de Jueves Dorados
   const h=document.getElementById('cur-horario'); if(h) h.value='Jueves 10:00-13:00';
   const p=document.getElementById('cur-precio'); if(p) p.value=100;
