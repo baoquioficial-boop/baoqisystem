@@ -368,6 +368,12 @@
         <div class="sh">
           <span class="sti"><i class="ti ti-user-search" style="color:var(--g);margin-right:6px"></i>Interesados en cursos y Jueves Dorados</span>
           <div style="display:flex;gap:6px">
+            <select class="fs" id="int-clasif" onchange="renderInteresados()" style="font-size:12px;padding:6px 10px;width:auto">
+              <option value="">Toda clasificación</option>
+              <option value="interes_real">🔥 Interés real</option>
+              <option value="solo_pregunto">Solo preguntó</option>
+              <option value="no_interesado">No interesado</option>
+            </select>
             <select class="fs" id="int-filtro" onchange="renderInteresados()" style="font-size:12px;padding:6px 10px;width:auto">
               <option value="">Todos</option>
               <option value="Nuevo">Nuevos</option>

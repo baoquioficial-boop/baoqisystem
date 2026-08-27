@@ -1908,8 +1908,10 @@ function telLegibleInt(t) {
 
 function renderInteresados() {
   const filtro = document.getElementById('int-filtro')?.value || '';
+  const clasif = document.getElementById('int-clasif')?.value || '';
   let lista = INTERESADOS.slice();
   if (filtro) lista = lista.filter(i=>i.estado===filtro);
+  if (clasif) lista = lista.filter(i=>i.clasificacion===clasif);
 
   // Métricas
   document.getElementById('int-nuevos').textContent = INTERESADOS.filter(i=>i.estado==='Nuevo').length;
@@ -1926,15 +1928,24 @@ function renderInteresados() {
     const tel = telLegibleInt(i.telefono);
     const estBg = i.estado==='Nuevo'?'var(--aul)':i.estado==='Convertido'?'var(--gl)':i.estado==='Descartado'?'#FCEBEB':'var(--bg-sec)';
     const estColor = i.estado==='Nuevo'?'var(--aud)':i.estado==='Convertido'?'var(--g)':i.estado==='Descartado'?'#A32D2D':'var(--text-ter)';
-    const interesLabel = i.interes==='jueves_dorados' ? '☀️ Jueves Dorados' : (i.interes==='curso'?'🌿 Curso herbolaria':i.interes||'—');
+    const interesLabel = i.interes==='jueves_dorados' ? '☀️ Jueves Dorados' : (i.interes==='curso_herbolaria'||i.interes==='curso'?'🌿 Curso herbolaria':i.interes==='consulta'?'🩺 Consulta':i.interes||'—');
+    // Badge de clasificación de IA
+    let clasBadge = '';
+    if (i.clasificacion==='interes_real') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:var(--gl);color:var(--g);font-weight:600">🔥 Interés real</span>';
+    else if (i.clasificacion==='solo_pregunto') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:var(--aul);color:var(--aud)">Solo preguntó</span>';
+    else if (i.clasificacion==='no_interesado') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:#FCEBEB;color:#A32D2D">No interesado</span>';
     const fecha = i.primer_contacto ? new Date(i.primer_contacto).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '—';
-    // Link de WhatsApp para contactar directo desde recepción
     const waLink = `https://wa.me/52${tel}`;
     return `<tr>
       <td style="font-family:monospace;font-size:12px">${tel}</td>
       <td>
-        <div style="font-size:13px;font-weight:500">${i.nombre||'<span style="color:var(--text-ter)">Sin nombre</span>'}</div>
-        <div style="font-size:11px;color:var(--text-ter)">${interesLabel}${i.detalle&&i.detalle!=='Rescatado del historial de chat'?' · '+i.detalle:''}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:500">${i.nombre||'<span style="color:var(--text-ter)">Sin nombre</span>'}</span>
+          ${clasBadge}
+        </div>
+        <div style="font-size:11px;color:var(--text-ter);margin-top:2px">${interesLabel}</div>
+        ${i.donde_quedo?`<div style="font-size:11px;color:var(--text-sec);margin-top:2px"><i class="ti ti-message-dots" style="vertical-align:-1px"></i> ${i.donde_quedo}</div>`:''}
+        ${i.accion_sugerida?`<div style="font-size:11px;color:var(--g);margin-top:2px"><i class="ti ti-arrow-right" style="vertical-align:-1px"></i> ${i.accion_sugerida}</div>`:''}
       </td>
       <td class="hide-sm" style="font-size:12px;color:var(--text-sec)">${fecha}</td>
       <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${estBg};color:${estColor}">${i.estado}</span></td>
