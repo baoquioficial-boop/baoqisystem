@@ -1924,38 +1924,93 @@ function renderInteresados() {
     tb.innerHTML = '<tr><td colspan="5"><div class="empty"><i class="ti ti-user-search"></i>Sin interesados en esta vista</div></td></tr>';
     return;
   }
-  tb.innerHTML = lista.map(i=>{
-    const tel = telLegibleInt(i.telefono);
-    const estBg = i.estado==='Nuevo'?'var(--aul)':i.estado==='Convertido'?'var(--gl)':i.estado==='Descartado'?'#FCEBEB':'var(--bg-sec)';
-    const estColor = i.estado==='Nuevo'?'var(--aud)':i.estado==='Convertido'?'var(--g)':i.estado==='Descartado'?'#A32D2D':'var(--text-ter)';
-    const interesLabel = i.interes==='jueves_dorados' ? '☀️ Jueves Dorados' : (i.interes==='curso_herbolaria'||i.interes==='curso'?'🌿 Curso herbolaria':i.interes==='consulta'?'🩺 Consulta':i.interes||'—');
-    // Badge de clasificación de IA
-    let clasBadge = '';
-    if (i.clasificacion==='interes_real') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:var(--gl);color:var(--g);font-weight:600">🔥 Interés real</span>';
-    else if (i.clasificacion==='solo_pregunto') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:var(--aul);color:var(--aud)">Solo preguntó</span>';
-    else if (i.clasificacion==='no_interesado') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:#FCEBEB;color:#A32D2D">No interesado</span>';
-    const fecha = i.primer_contacto ? new Date(i.primer_contacto).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '—';
-    const waLink = `https://wa.me/52${tel}`;
-    return `<tr>
-      <td style="font-family:monospace;font-size:12px">${tel}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:13px;font-weight:500">${i.nombre||'<span style="color:var(--text-ter)">Sin nombre</span>'}</span>
-          ${clasBadge}
-        </div>
-        <div style="font-size:11px;color:var(--text-ter);margin-top:2px">${interesLabel}</div>
-        ${i.donde_quedo?`<div style="font-size:11px;color:var(--text-sec);margin-top:2px"><i class="ti ti-message-dots" style="vertical-align:-1px"></i> ${i.donde_quedo}</div>`:''}
-        ${i.accion_sugerida?`<div style="font-size:11px;color:var(--g);margin-top:2px"><i class="ti ti-arrow-right" style="vertical-align:-1px"></i> ${i.accion_sugerida}</div>`:''}
-      </td>
-      <td class="hide-sm" style="font-size:12px;color:var(--text-sec)">${fecha}</td>
-      <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${estBg};color:${estColor}">${i.estado}</span></td>
-      <td style="white-space:nowrap">
-        <a href="${waLink}" target="_blank" class="btn btn-sm btn-g" style="text-decoration:none" title="Abrir WhatsApp"><i class="ti ti-brand-whatsapp"></i></a>
-        <button class="ra" onclick="cambiarEstadoInteresado('${i.id}')" title="Cambiar estado"><i class="ti ti-check"></i></button>
-        <button class="ra" onclick="editarInteresado('${i.id}')" title="Editar"><i class="ti ti-edit"></i></button>
-      </td>
-    </tr>`;
-  }).join('');
+
+  // Agrupar por tipo de interés y ordenar: herbolaria, jueves dorados, consulta, otros
+  const grupos = {
+    'curso_herbolaria': {label:'🌿 Cursos de herbolaria', items:[]},
+    'jueves_dorados': {label:'☀️ Jueves Dorados', items:[]},
+    'consulta': {label:'🩺 Consultas', items:[]},
+    'otro': {label:'📋 Otros', items:[]}
+  };
+  lista.forEach(i=>{
+    let k = i.interes;
+    if (k==='curso') k='curso_herbolaria';
+    if (!grupos[k]) k='otro';
+    grupos[k].items.push(i);
+  });
+
+  // Dentro de cada grupo, ordenar por: interés real primero, luego nuevos
+  const ordenClasif = {'interes_real':0,'solo_pregunto':1,'no_interesado':2,'':3};
+  Object.values(grupos).forEach(g=>{
+    g.items.sort((a,b)=>(ordenClasif[a.clasificacion||'']??3)-(ordenClasif[b.clasificacion||'']??3));
+  });
+
+  let html = '';
+  for (const key of ['curso_herbolaria','jueves_dorados','consulta','otro']) {
+    const g = grupos[key];
+    if (!g.items.length) continue;
+    // Encabezado de grupo
+    html += `<tr style="background:var(--bg-sec)"><td colspan="5" style="padding:8px 12px;font-size:12px;font-weight:600;color:var(--text-sec)">${g.label} <span style="color:var(--text-ter);font-weight:400">(${g.items.length})</span></td></tr>`;
+    html += g.items.map(filaInteresado).join('');
+  }
+  tb.innerHTML = html;
+}
+
+function filaInteresado(i) {
+  const tel = telLegibleInt(i.telefono);
+  const estBg = i.estado==='Nuevo'?'var(--aul)':i.estado==='Convertido'?'var(--gl)':i.estado==='Descartado'?'#FCEBEB':'var(--bg-sec)';
+  const estColor = i.estado==='Nuevo'?'var(--aud)':i.estado==='Convertido'?'var(--g)':i.estado==='Descartado'?'#A32D2D':'var(--text-ter)';
+  let clasBadge = '';
+  if (i.clasificacion==='interes_real') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:var(--gl);color:var(--g);font-weight:600">🔥 Interés real</span>';
+  else if (i.clasificacion==='solo_pregunto') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:var(--aul);color:var(--aud)">Solo preguntó</span>';
+  else if (i.clasificacion==='no_interesado') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:#FCEBEB;color:#A32D2D">No interesado</span>';
+  const fecha = i.primer_contacto ? new Date(i.primer_contacto).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '—';
+  const waLink = `https://wa.me/52${tel}`;
+  const yaContactado = i.estado==='Contactado' || i.estado==='Convertido';
+  return `<tr>
+    <td style="font-family:monospace;font-size:12px">${tel}</td>
+    <td>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:500">${i.nombre||'<span style="color:var(--text-ter)">Sin nombre</span>'}</span>
+        ${clasBadge}
+      </div>
+      ${i.donde_quedo?`<div style="font-size:11px;color:var(--text-sec);margin-top:2px"><i class="ti ti-message-dots" style="vertical-align:-1px"></i> ${i.donde_quedo}</div>`:''}
+      ${i.accion_sugerida?`<div style="font-size:11px;color:var(--g);margin-top:2px"><i class="ti ti-arrow-right" style="vertical-align:-1px"></i> ${i.accion_sugerida}</div>`:''}
+    </td>
+    <td class="hide-sm" style="font-size:12px;color:var(--text-sec)">${fecha}</td>
+    <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${estBg};color:${estColor}">${i.estado}</span></td>
+    <td style="white-space:nowrap">
+      <a href="${waLink}" target="_blank" class="btn btn-sm btn-g" style="text-decoration:none" title="Contactar por WhatsApp"><i class="ti ti-brand-whatsapp"></i></a>
+      <button class="btn btn-sm" onclick="marcarContactado('${i.id}')" title="${yaContactado?'Ya contactado':'Marcar como contactado'}" ${yaContactado?'style="opacity:.5"':''}><i class="ti ti-user-check"></i></button>
+      <button class="btn btn-sm" onclick="eliminarInteresado('${i.id}')" title="Eliminar" style="color:#A32D2D"><i class="ti ti-trash"></i></button>
+    </td>
+  </tr>`;
+}
+
+async function marcarContactado(id) {
+  const i = INTERESADOS.find(x=>x.id===id); if(!i) return;
+  const nuevo = i.estado==='Contactado' ? 'Nuevo' : 'Contactado';
+  try {
+    await sb('interesados','PATCH',{estado:nuevo,contactado:nuevo==='Contactado'},`?id=eq.${id}`);
+    i.estado = nuevo; i.contactado = nuevo==='Contactado';
+    renderInteresados();
+    const nb = document.getElementById('nb-interesados');
+    if (nb) nb.textContent = INTERESADOS.filter(x=>x.estado==='Nuevo').length;
+    toast(nuevo==='Contactado'?'✓ Marcado como contactado':'Regresado a nuevo');
+  } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+async function eliminarInteresado(id) {
+  const i = INTERESADOS.find(x=>x.id===id); if(!i) return;
+  if(!confirm(`¿Eliminar a ${i.nombre||telLegibleInt(i.telefono)} de la lista de interesados?\n\nEsto no se puede deshacer.`)) return;
+  try {
+    await sb('interesados','DELETE',null,`?id=eq.${id}`);
+    INTERESADOS = INTERESADOS.filter(x=>x.id!==id);
+    renderInteresados();
+    const nb = document.getElementById('nb-interesados');
+    if (nb) nb.textContent = INTERESADOS.filter(x=>x.estado==='Nuevo').length;
+    toast('✓ Interesado eliminado');
+  } catch(e){ toast('⚠ Error: '+e.message); }
 }
 
 async function cambiarEstadoInteresado(id) {
