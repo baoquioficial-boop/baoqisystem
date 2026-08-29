@@ -538,7 +538,8 @@ function renderCitaCard(cita) {
   const avClass=cita.tipo==='Primera vez'?'av-nueva':'av-sub';
   const tipoClass=cita.tipo==='Primera vez'?'tipo-pv':'tipo-sub';
   let estadoPill='',acciones='';
-  switch(cita.estado){
+  const estadoCita = cita.estado || 'Pendiente';
+  switch(estadoCita){
     case 'Pendiente':
       estadoPill=`<span class="ep ep-pendiente">Pendiente</span>`;
       acciones=`<button class="btn btn-sm" style="background:var(--gl);border-color:var(--g);color:var(--g)" onclick="registrarLlegada('${cita.id}')"><i class="ti ti-door-enter"></i> Llegó</button>`;
@@ -555,6 +556,14 @@ function renderCitaCard(cita) {
       estadoPill=`<span class="ep ep-pagado"><i class="ti ti-check" style="font-size:11px"></i> Pagada</span>`;
       acciones=`<button class="btn btn-sm" onclick="abrirSOAPdesdeCita('${cita.id}')"><i class="ti ti-notes"></i> SOAP</button>`;
       break;
+    case 'Cancelada':
+      estadoPill=`<span class="ep" style="background:#FCEBEB;color:#A32D2D">Cancelada</span>`;
+      acciones='';
+      break;
+    default:
+      // Cualquier estado desconocido o vacío se trata como Pendiente (para no dejar la cita sin acciones)
+      estadoPill=`<span class="ep ep-pendiente">Pendiente</span>`;
+      acciones=`<button class="btn btn-sm" style="background:var(--gl);border-color:var(--g);color:var(--g)" onclick="registrarLlegada('${cita.id}')"><i class="ti ti-door-enter"></i> Llegó</button>`;
   }
   // Mostrar doctor solo si es admin (varios doctores)
   const docLine=esAdmin()?`<div class="cita-doctor"><i class="ti ti-user-circle" style="font-size:11px;vertical-align:-1px"></i> ${cita.doctor_nombre||'—'}</div>`:'';
