@@ -414,3 +414,39 @@ tr:hover td { background: var(--bg-sec); }
   /* Rep 2 col */
   .rep-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ============================================================
+   MEJORAS DE LAYOUT Y RESPONSIVE (v4.1)
+   ============================================================ */
+
+/* Evitar que el contenido se corte horizontalmente */
+.main { max-width: 100%; overflow-x: hidden; }
+.cnt { max-width: 100%; box-sizing: border-box; }
+.pg { max-width: 100%; }
+
+/* Tablas con scroll horizontal en pantallas chicas (no se cortan) */
+.tw { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tw table { min-width: 600px; }
+
+/* Tarjetas de cita: que el texto largo no rompa el layout */
+.agenda-wrap { max-width: 100%; }
+.cita-card, .agenda-wrap > div { max-width: 100%; box-sizing: border-box; }
+.cita-motivo, .cita-card [style*="white-space"] { word-break: break-word; overflow-wrap: anywhere; }
+
+/* En tablet/PC angosta: sidebar un poco más estrecho */
+@media (max-width: 1100px) {
+  .sb { width: 180px; min-width: 180px; }
+}
+
+/* En móvil: el sidebar se colapsa mejor y el contenido usa todo el ancho */
+@media (max-width: 640px) {
+  .cnt { padding: 10px; }
+  .sg { grid-template-columns: repeat(2,1fr); gap: 6px; }
+  .topbar { padding: 10px 12px; }
+  /* Los botones de día un poco más compactos */
+  #agenda-nav [style*="grid-template-columns"] { gap: 4px !important; }
+}
+
+/* Asegurar que ningún elemento con ancho fijo desborde */
+* { max-width: 100%; }
+img, svg { height: auto; }

@@ -37,10 +37,16 @@ function qPacientes() { return ''; }
 /* ============ CARGA CON FILTRO ============ */
 async function cargarTodo() {
   // Cargar cada tabla por separado: si una falla, las demás siguen cargando
-  try { PACS = await sb('pacientes','GET',null,`?order=created_at.desc${qPacientes()}`) || []; } catch(e){ PACS=[]; }
-  try { CITAS = await sb('citas','GET',null,`?order=fecha.asc,hora.asc${qDoctor()}`) || []; } catch(e){ CITAS=[]; }
-  try { COBROS = await sb('cobros','GET',null,`?order=created_at.desc${qDoctor()}`) || []; } catch(e){ COBROS=[]; }
-  try { NOTAS = await sb('notas_soap','GET',null,`?order=created_at.desc${qDoctor()}`) || []; } catch(e){ NOTAS=[]; }
+  // PACIENTES: NO se cargan todos al inicio (son muchos). Se buscan bajo demanda.
+  PACS = [];
+  // Solo citas de los últimos 60 días y próximas (no todo el histórico)
+  try {
+    const desde = new Date(); desde.setDate(desde.getDate()-60);
+    const desdeStr = fechaLocal(desde);
+    CITAS = await sb('citas','GET',null,`?fecha=gte.${desdeStr}&order=fecha.asc,hora.asc${qDoctor()}`) || [];
+  } catch(e){ CITAS=[]; }
+  try { COBROS = await sb('cobros','GET',null,`?order=created_at.desc&limit=200${qDoctor()}`) || []; } catch(e){ COBROS=[]; }
+  try { NOTAS = await sb('notas_soap','GET',null,`?order=created_at.desc&limit=200${qDoctor()}`) || []; } catch(e){ NOTAS=[]; }
   try { DIAS_BLOQUEADOS = await sb('dias_bloqueados','GET',null,'?order=fecha.asc') || []; } catch(e){ DIAS_BLOQUEADOS=[]; }
 
   // Admin: mostrar filtro por doctor en reportes
@@ -79,16 +85,16 @@ function gp(page,el) {
   const t={agenda:'Agenda',pac:'Pacientes',caja:'Caja',rep:'Reportes',exp:'Expedientes',admin:'Configuración',cursos:'Cursos de herbolaria',dorados:'Jueves Dorados',interesados:'Interesados',dashboard:'Dashboard',crm:'CRM — Contactos',inscripciones:'Inscripciones',comprobantes:'Comprobantes',promos:'Promociones',agente:'Agente IA',recordatorios:'Recordatorios',atencion:'Atención WhatsApp'};
   document.getElementById('ptit').textContent=t[page];
   if(page==='agenda') renderAgenda();
-  if(page==='pac') renderPacs(PACS);
+  if(page==='pac') cargarPacientesRecientes();
   if(page==='caja') renderCaja();
   if(page==='rep') renderReporte();
-  if(page==='exp') renderExp();
+  if(page==='exp') asegurarPacientesCompletos().then(renderExp);
   if(page==='admin') renderAdmin();
   if(page==='cursos'){ cargarCursos().then(renderCursos); }
   if(page==='dorados'){ cargarCursos().then(renderDorados); }
   if(page==='interesados'){ cargarInteresados().then(renderInteresados); }
-  if(page==='dashboard') renderDashboard();
-  if(page==='crm') renderCRM();
+  if(page==='dashboard') asegurarPacientesCompletos().then(renderDashboard);
+  if(page==='crm') asegurarPacientesCompletos().then(renderCRM);
   if(page==='inscripciones') renderInscripciones();
   if(page==='comprobantes') renderComprobantes();
   if(page==='promos') renderPromos();
@@ -144,7 +150,39 @@ function actualizarMonto() {
 // ---- Buscador de paciente existente en modal de cita ----
 let ncPacienteSel = null;
 
+let _ncBuscarTimer = null;
 function buscarPacienteCita(q) {
+  const cont = document.getElementById('nc-resultados');
+  if (!cont) return;
+  q = (q||'').trim();
+  if (q.length < 2) { cont.style.display='none'; return; }
+  clearTimeout(_ncBuscarTimer);
+  cont.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--text-ter)">Buscando…</div>';
+  cont.style.display='block';
+  _ncBuscarTimer = setTimeout(async () => {
+    let res = [];
+    try {
+      const enc = encodeURIComponent(q);
+      res = await sb('pacientes','GET',null,
+        `?or=(nombre.ilike.*${enc}*,tel.ilike.*${enc}*)&order=nombre.asc&limit=8${qPacientes()}`) || [];
+      res.forEach(p=>{ if(!PACS.find(x=>x.id===p.id)) PACS.push(p); });
+    } catch(e){ res = []; }
+    if (!res.length) {
+      cont.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--text-ter)">Sin coincidencias — puedes registrarlo como nuevo abajo</div>';
+      cont.style.display='block';
+      return;
+    }
+    cont.innerHTML = res.map(p => {
+      const nCitas = CITAS.filter(c=>c.pac_id===p.id).length;
+      return `<div onclick="seleccionarPacienteCita('${p.id}')" style="padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--bg-sec)'" onmouseout="this.style.background='white'">
+        <div style="font-weight:500;color:var(--text)">${p.nombre}</div>
+        <div style="font-size:11px;color:var(--text-ter)">${p.tel||'sin tel'} · ${nCitas} cita${nCitas!==1?'s':''} previa${nCitas!==1?'s':''}</div>
+      </div>`;
+    }).join('');
+    cont.style.display='block';
+  }, 350);
+}
+function _buscarPacienteCitaViejo(q) {
   const cont = document.getElementById('nc-resultados');
   if (!cont) return;
   q = (q||'').trim().toLowerCase();
@@ -203,7 +241,26 @@ async function guardarCitaSimple() {
   const nombre=document.getElementById('nc-nombre').value.trim();
   const tel=document.getElementById('nc-tel').value.trim();
   const fecha=document.getElementById('nc-fecha').value;
-  if(!nombre||!fecha){toast('⚠ Nombre y fecha son obligatorios');return;}
+
+  // 🔒 CANDADO 1: nombre completo (al menos nombre y apellido)
+  if(!nombre || nombre.split(/\s+/).length < 2){
+    toast('⚠ Escribe el nombre COMPLETO (nombre y apellido)');return;
+  }
+  // 🔒 CANDADO 2: teléfono de 10 dígitos
+  const telDigitos = (tel||'').replace(/[^0-9]/g,'');
+  if(telDigitos.length < 10){
+    toast('⚠ El teléfono debe tener 10 dígitos');return;
+  }
+  // 🔒 CANDADO 3: fecha obligatoria y del año actual (evita el bug de años viejos)
+  if(!fecha){toast('⚠ La fecha es obligatoria');return;}
+  const anioFecha = parseInt(fecha.slice(0,4));
+  const anioActual = new Date().getFullYear();
+  if(anioFecha < anioActual){
+    toast('⚠ Esa fecha ya pasó ('+anioFecha+'). Revisa el año.');return;
+  }
+  if(anioFecha > anioActual + 1){
+    toast('⚠ Año muy lejano ('+anioFecha+'). Revisa la fecha.');return;
+  }
 
   // ✅ Martes(2) a Sábado(6) — cerrado domingo(0) y lunes(1)
   const _diaSem = new Date(fecha+'T12:00:00').getDay();
@@ -597,6 +654,29 @@ function abrirSOAPdesdeCita(citaId) {
 }
 
 /* ============ PACIENTES ============ */
+let _pacientesCompletos = false;
+async function asegurarPacientesCompletos() {
+  if (_pacientesCompletos) return;
+  try {
+    const todos = await sb('pacientes','GET',null,`?order=created_at.desc${qPacientes()}`) || [];
+    PACS = todos;
+    _pacientesCompletos = true;
+    const nb = document.getElementById('nb-pac'); if(nb) nb.textContent = PACS.length;
+  } catch(e){}
+}
+
+async function cargarPacientesRecientes() {
+  const tb = document.getElementById('tb-pac');
+  if (tb && !PACS.length) tb.innerHTML = '<tr><td colspan="6"><div class="loading">Cargando pacientes…</div></td></tr>';
+  try {
+    const recientes = await sb('pacientes','GET',null,`?order=created_at.desc&limit=50${qPacientes()}`) || [];
+    recientes.forEach(p=>{ if(!PACS.find(x=>x.id===p.id)) PACS.push(p); });
+    renderPacs(recientes);
+  } catch(e) {
+    renderPacs(PACS.slice(0,50));
+  }
+}
+
 function renderPacs(lista) {
   const tb=document.getElementById('tb-pac');
   if(!lista.length){tb.innerHTML=`<tr><td colspan="6"><div class="empty"><i class="ti ti-users-off"></i>Sin pacientes aún</div></td></tr>`;return;}
@@ -614,8 +694,30 @@ function renderPacs(lista) {
   }).join('');
 }
 
+let _buscarPacTimer = null;
 function filtrarPacs(q) {
-  renderPacs(PACS.filter(p=>p.nombre.toLowerCase().includes(q.toLowerCase())||((p.motivo||'').toLowerCase().includes(q.toLowerCase()))));
+  q = (q||'').trim();
+  clearTimeout(_buscarPacTimer);
+  if (q.length < 2) {
+    // Con menos de 2 letras, muestra lo que haya en memoria o un aviso
+    if (!q) { renderPacs(PACS.slice(0,50)); return; }
+    return;
+  }
+  // Debounce: espera 350ms tras dejar de teclear, luego busca en la BD
+  _buscarPacTimer = setTimeout(async () => {
+    try {
+      const enc = encodeURIComponent(q);
+      // Busca por nombre O teléfono en el servidor (ilike = insensible a mayúsculas)
+      const res = await sb('pacientes','GET',null,
+        `?or=(nombre.ilike.*${enc}*,tel.ilike.*${enc}*)&order=nombre.asc&limit=50${qPacientes()}`) || [];
+      // Fusiona resultados al cache PACS (para que otras vistas los tengan)
+      res.forEach(p=>{ if(!PACS.find(x=>x.id===p.id)) PACS.push(p); });
+      renderPacs(res);
+    } catch(e) {
+      // Fallback: filtra lo que haya en memoria
+      renderPacs(PACS.filter(p=>p.nombre.toLowerCase().includes(q.toLowerCase())));
+    }
+  }, 350);
 }
 
 function abrirSOAPpaciente(pacId,nombre) {
