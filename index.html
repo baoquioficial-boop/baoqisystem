@@ -670,7 +670,7 @@
         <button class="tab" onclick="st(this,'hc2')">Antecedentes</button>
         <button class="tab" onclick="st(this,'hc3')">Exploración</button>
         <button class="tab" onclick="st(this,'hc4')">MTCH</button>
-        <button class="tab" onclick="st(this,'hc5')">Plan + SOAP</button>
+        <button class="tab" onclick="st(this,'hc5')">Plan de tratamiento</button>
         <button class="tab" onclick="st(this,'hc6')">Consentimiento</button>
       </div>
       <div class="tp on" id="t-hc1">
@@ -701,16 +701,14 @@
         <div class="sep">Signos vitales</div>
         <div class="fr3"><div class="fg"><label class="fl">T.A.</label><input class="fi" id="hc-ta" type="text" placeholder="120/80"></div><div class="fg"><label class="fl">F.C.</label><input class="fi" id="hc-fc" type="text"></div><div class="fg"><label class="fl">Temperatura</label><input class="fi" id="hc-temp" type="text"></div></div>
         <div class="fr3"><div class="fg"><label class="fl">Peso (kg)</label><input class="fi" id="hc-peso" type="text"></div><div class="fg"><label class="fl">Talla (m)</label><input class="fi" id="hc-talla" type="text"></div><div class="fg"><label class="fl">IMC</label><input class="fi" id="hc-imc" type="text"></div></div>
-        <div class="sep">Mecano-postural</div>
-        <div class="checks-grid">
-          <label class="chk"><input type="checkbox" id="hc-cab"> Cabeza alineada</label>
-          <label class="chk"><input type="checkbox" id="hc-hom"> Hombros nivelados</label>
-          <label class="chk"><input type="checkbox" id="hc-cur"> Curvas conservadas</label>
-          <label class="chk"><input type="checkbox" id="hc-esc"> Escoliosis</label>
-          <label class="chk"><input type="checkbox" id="hc-ant"> Anteversión pélvica</label>
-          <label class="chk"><input type="checkbox" id="hc-gib"> Giba costal</label>
-        </div>
-        <div class="fr1"><div class="fg"><label class="fl">Zonas afectadas / observaciones</label><textarea class="ft" id="hc-zonas"></textarea></div></div>
+        <div class="sep">Interrogatorio por aparatos y sistemas</div>
+        <div class="fr1"><div class="fg"><label class="fl">Digestivo</label><textarea class="ft" id="hc-sis-dig" placeholder="Apetito, digestión, evacuaciones, náuseas, dolor abdominal..."></textarea></div></div>
+        <div class="fr1"><div class="fg"><label class="fl">Respiratorio</label><textarea class="ft" id="hc-sis-resp" placeholder="Tos, disnea, expectoración, dolor torácico..."></textarea></div></div>
+        <div class="fr1"><div class="fg"><label class="fl">Circulatorio / Cardiovascular</label><textarea class="ft" id="hc-sis-circ" placeholder="Palpitaciones, dolor precordial, edema, antecedentes de cardiopatía..."></textarea></div></div>
+        <div class="fr1"><div class="fg"><label class="fl">Nervioso</label><textarea class="ft" id="hc-sis-nerv" placeholder="Cefalea, mareo, insomnio, parestesias, alteraciones de memoria..."></textarea></div></div>
+        <div class="fr1"><div class="fg"><label class="fl">Urogenital</label><textarea class="ft" id="hc-sis-uro" placeholder="Micción, dolor lumbar, alteraciones menstruales, libido..."></textarea></div></div>
+        <div class="fr1"><div class="fg"><label class="fl">Músculo-esquelético</label><textarea class="ft" id="hc-sis-musc" placeholder="Dolor articular, rigidez, limitación de movimiento, debilidad..."></textarea></div></div>
+        <div class="fr1"><div class="fg"><label class="fl">Observaciones generales de la exploración</label><textarea class="ft" id="hc-zonas"></textarea></div></div>
       </div>
       <div class="tp" id="t-hc4">
         <div class="sep">Shen y lengua</div>
@@ -733,11 +731,7 @@
         </div>
         <div class="fr"><div class="fg"><label class="fl">Puntos sesión 1</label><input class="fi" id="hc-puntos" type="text" placeholder="ST36, LI4, GV20..."></div><div class="fg"><label class="fl">Retención (min)</label><input class="fi" id="hc-ret" type="number" placeholder="20"></div></div>
         <div class="fr"><div class="fg"><label class="fl">Duración / frecuencia</label><input class="fi" id="hc-frec" type="text" placeholder="10 sesiones, 2/semana"></div><div class="fg"><label class="fl">Pronóstico</label><select class="fs" id="hc-prog"><option>Favorable</option><option>Reservado</option><option>Desfavorable</option></select></div></div>
-        <div class="sep">Nota SOAP — Sesión 1</div>
-        <div class="fr1"><div class="fg"><label class="fl">S — Subjetivo</label><textarea class="ft" id="hc-s" placeholder="Lo que refiere el paciente..."></textarea></div></div>
-        <div class="fr1"><div class="fg"><label class="fl">O — Objetivo</label><textarea class="ft" id="hc-o" placeholder="Hallazgos clínicos..."></textarea></div></div>
-        <div class="fr1"><div class="fg"><label class="fl">A — Análisis</label><textarea class="ft" id="hc-a" placeholder="Interpretación clínica y energética..."></textarea></div></div>
-        <div class="fr1"><div class="fg"><label class="fl">P — Plan</label><textarea class="ft" id="hc-p" placeholder="Indicaciones, próxima sesión..."></textarea></div></div>
+        <div class="info-box" style="margin-top:8px"><i class="ti ti-info-circle"></i>La nota SOAP de evolución se registra a partir de la segunda sesión, desde el botón "Nota SOAP" de cada cita subsecuente.</div>
       </div>
       <div class="tp" id="t-hc6">
         <div class="consent-box"><strong style="display:block;margin-bottom:4px">Consentimiento informado — NOM-004-SSA3-2012 / COFEPRIS</strong>Estimulación de puntos anatómicos mediante agujas estériles desechables autorizadas por COFEPRIS. Datos resguardados conforme a la Ley Federal de Protección de Datos Personales.</div>

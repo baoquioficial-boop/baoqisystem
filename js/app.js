@@ -356,6 +356,8 @@ function abrirHC(cita,pac) {
   om('hc');
 }
 
+function val(id){ const el=document.getElementById(id); return el?el.value:''; }
+
 async function guardarHC() {
   const nombre=document.getElementById('hc-nombre').value.trim();
   if(!nombre){toast('⚠ El nombre es obligatorio');return;}
@@ -385,26 +387,20 @@ async function guardarHC() {
     dxbio:document.getElementById('hc-dxbio').value,
     dxmtch:document.getElementById('hc-dxmtch').value,
     puntos:document.getElementById('hc-puntos').value,
+    sis_dig:val('hc-sis-dig'),
+    sis_resp:val('hc-sis-resp'),
+    sis_circ:val('hc-sis-circ'),
+    sis_nerv:val('hc-sis-nerv'),
+    sis_uro:val('hc-sis-uro'),
+    sis_musc:val('hc-sis-musc'),
+    expl_obs:val('hc-zonas'),
     doctor_id:doctorActual.id,
     fecha_reg:hoy()
   };
 
-  const nota={
-    id:uid(),pac_id:citaActual.pac_id,
-    fecha:hoy(),num:1,
-    s:document.getElementById('hc-s').value,
-    o:document.getElementById('hc-o').value,
-    a:document.getElementById('hc-a').value,
-    p:document.getElementById('hc-p').value,
-    puntos_sesion:document.getElementById('hc-puntos').value,
-    retencion:document.getElementById('hc-ret').value,
-    doctor_id:doctorActual.id,
-    doctor_nombre:doctorActual.nombre
-  };
-
   try {
     await sb('pacientes','PATCH',pac,`?id=eq.${pac.id}`);
-    await sb('notas_soap','POST',nota);
+    // Nota: el SOAP NO se crea en la primera vez. Va desde la 2da sesión.
     await marcarAtendida(citaActual.id);
     const idx=PACS.findIndex(p=>p.id===pac.id);
     if(idx>=0) PACS[idx]={...PACS[idx],...pac};
