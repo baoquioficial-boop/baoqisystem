@@ -199,7 +199,10 @@
         </div>
         <div class="sh">
           <span class="sti">Movimientos del día</span>
-          <button class="btn btn-a btn-sm" onclick="om('cobrar')"><i class="ti ti-cash"></i> Cobrar</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" onclick="om('gasto')"><i class="ti ti-arrow-down-circle" style="color:#A32D2D"></i> Registrar gasto</button>
+            <button class="btn btn-a btn-sm" onclick="om('cobrar')"><i class="ti ti-cash"></i> Cobrar</button>
+          </div>
         </div>
         <div class="tw">
           <table>
@@ -664,7 +667,16 @@
       <span class="mht"><i class="ti ti-clipboard-heart" style="color:#2D6A4F;margin-right:5px"></i>Historia clínica — <span id="hc-pac-nombre">Paciente</span></span>
       <button class="mx" onclick="cm('hc')"><i class="ti ti-x"></i></button>
     </div>
-    <div class="mb">
+    <div style="padding:0 16px">
+      <div style="display:flex;align-items:center;gap:10px;margin:8px 0">
+        <div style="flex:1;height:6px;background:var(--bg-sec);border-radius:3px;overflow:hidden">
+          <div id="hc-progreso-barra" style="height:100%;width:0%;background:var(--g);transition:width .3s;border-radius:3px"></div>
+        </div>
+        <span id="hc-progreso-txt" style="font-size:11px;color:var(--text-ter);white-space:nowrap">0% completado</span>
+        <span id="hc-autoguardado" style="font-size:11px;color:var(--g);white-space:nowrap;opacity:0"><i class="ti ti-check"></i> Guardado</span>
+      </div>
+    </div>
+    <div class="mb" oninput="actualizarProgresoHC()">
       <div class="tabs">
         <button class="tab on" onclick="st(this,'hc1')">Datos personales</button>
         <button class="tab" onclick="st(this,'hc2')">Antecedentes</button>
@@ -838,6 +850,40 @@
 </div>
 
 <!-- COBRAR -->
+<!-- VER HISTORIA CLÍNICA (solo lectura) -->
+<!-- REGISTRAR GASTO / EGRESO -->
+<div class="mw" id="m-gasto">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-arrow-down-circle" style="color:#A32D2D;margin-right:5px"></i>Registrar gasto</span>
+      <button class="mx" onclick="cm('gasto')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div class="fr1"><div class="fg"><label class="fl">Concepto *</label><input class="fi" id="ga-concepto" type="text" placeholder="Renta, insumos, agujas, luz..."></div></div>
+      <div class="fr"><div class="fg"><label class="fl">Categoría</label><select class="fs" id="ga-categoria"><option>Insumos</option><option>Renta</option><option>Servicios</option><option>Equipo</option><option>Sueldos</option><option>Publicidad</option><option>Otro</option></select></div><div class="fg"><label class="fl">Monto *</label><input class="fi" id="ga-monto" type="number" placeholder="0"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">Método de pago</label><select class="fs" id="ga-metodo"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div><div class="fg"><label class="fl">Fecha</label><input class="fi" id="ga-fecha" type="date"></div></div>
+      <div class="fr1"><div class="fg"><label class="fl">Notas</label><textarea class="ft" id="ga-notas" placeholder="Proveedor, folio de factura, etc."></textarea></div></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('gasto')">Cancelar</button>
+      <button class="btn btn-g" id="btn-guardar-gasto" onclick="guardarGasto()"><i class="ti ti-check"></i> Guardar gasto</button>
+    </div>
+  </div>
+</div>
+
+<div class="mw" id="m-verhc">
+  <div class="mo">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-clipboard-text" style="color:var(--g);margin-right:5px"></i><span id="vhc-titulo">Historia clínica</span></span>
+      <button class="mx" onclick="cm('verhc')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb" style="max-height:70vh;overflow-y:auto" id="vhc-body"></div>
+    <div class="mf">
+      <button class="btn" onclick="cm('verhc')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="mw" id="m-cobrar">
   <div class="mo mo-sm">
     <div class="mh"><span class="mht"><i class="ti ti-cash" style="color:#C9971C;margin-right:5px"></i>Registrar cobro</span><button class="mx" onclick="cm('cobrar')"><i class="ti ti-x"></i></button></div>
@@ -849,7 +895,7 @@
       <div class="ctot"><span class="cl">Total a cobrar</span><span class="ca" id="cob-total">$400</span></div>
       <div class="cbr"><input type="checkbox" id="gent" checked><label for="gent">Generar ticket al confirmar</label></div>
     </div>
-    <div class="mf"><button class="btn" onclick="cm('cobrar')">Cancelar</button><button class="btn btn-a" onclick="confirmarCobro()"><i class="ti ti-check"></i> Confirmar cobro</button></div>
+    <div class="mf"><button class="btn" onclick="cm('cobrar')">Cancelar</button><button class="btn btn-a" id="btn-confirmar-cobro" onclick="confirmarCobro()"><i class="ti ti-check"></i> Confirmar cobro</button></div>
   </div>
 </div>
 

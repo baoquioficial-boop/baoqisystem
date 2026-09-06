@@ -4,7 +4,7 @@
    admin ve todo. Sin UI de roles visible.
    ============================================= */
 
-let PACS = [], CITAS = [], COBROS = [], NOTAS = [], DIAS_BLOQUEADOS = [];
+let PACS = [], CITAS = [], COBROS = [], NOTAS = [], DIAS_BLOQUEADOS = [], GASTOS = [];
 let citaActual = null;
 
 /* ============ UTILIDADES ============ */
@@ -46,6 +46,7 @@ async function cargarTodo() {
     CITAS = await sb('citas','GET',null,`?fecha=gte.${desdeStr}&order=fecha.asc,hora.asc${qDoctor()}`) || [];
   } catch(e){ CITAS=[]; }
   try { COBROS = await sb('cobros','GET',null,`?order=created_at.desc&limit=200${qDoctor()}`) || []; } catch(e){ COBROS=[]; }
+  try { GASTOS = await sb('gastos','GET',null,'?order=created_at.desc&limit=200') || []; } catch(e){ GASTOS=[]; }
   try { NOTAS = await sb('notas_soap','GET',null,`?order=created_at.desc&limit=200${qDoctor()}`) || []; } catch(e){ NOTAS=[]; }
   try { DIAS_BLOQUEADOS = await sb('dias_bloqueados','GET',null,'?order=fecha.asc') || []; } catch(e){ DIAS_BLOQUEADOS=[]; }
 
@@ -107,6 +108,7 @@ function om(id) {
   document.getElementById('m-'+id).classList.add('op');
   if(id==='cobrar') { poblarSelectCobro(); actualizarMonto(); }
   if(id==='ncita') { document.getElementById('nc-fecha').value=agendaFecha||hoy(); poblarSelectDoctor(); if(typeof limpiarPacienteCita==='function') limpiarPacienteCita(); }
+  if(id==='gasto') { const gf=document.getElementById('ga-fecha'); if(gf && !gf.value) gf.value=hoy(); }
 }
 function cm(id) { document.getElementById('m-'+id).classList.remove('op'); }
 function sm(el) { el.closest('.met-g').querySelectorAll('.met').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
@@ -271,6 +273,16 @@ async function guardarCitaSimple() {
   const _bloq = DIAS_BLOQUEADOS.find(d=>d.fecha===fecha);
   if(_bloq){ toast('⚠ Día bloqueado: '+(_bloq.motivo||'No disponible')); return; }
 
+  // 🔒 CANDADO 4: 1 paciente por horario (con excepción manual)
+  const _hora = document.getElementById('nc-hora').value;
+  const _ocupadas = CITAS.filter(c=>c.fecha===fecha && c.hora===_hora && c.estado!=='Cancelada');
+  if(_ocupadas.length >= 1){
+    const quien = _ocupadas[0].pac_nombre||'otro paciente';
+    if(!confirm(`⚠ Ese horario (${_hora}) ya lo tiene ${quien}.\n\nLa consulta dura 1 hora, se recomienda un paciente por horario.\n\n¿Deseas agendar de todas formas (excepción)?`)){
+      return;
+    }
+  }
+
 
   const doctorId=document.getElementById('nc-doctor')?.value||doctorActual.id;
   const doctorNombre=DOCS.find(d=>d.id===doctorId)?.nombre||doctorActual.nombre;
@@ -358,6 +370,36 @@ function abrirHC(cita,pac) {
 
 function val(id){ const el=document.getElementById(id); return el?el.value:''; }
 
+// Campos clave de la historia clínica para calcular el progreso
+const _hcCampos = ['hc-nombre','hc-tel','hc-fnac','hc-sexo','hc-ocup','hc-dom','hc-motivo','hc-padec','hc-padre','hc-madre','hc-alerg','hc-meds','hc-ta','hc-peso','hc-talla','hc-sis-dig','hc-sis-resp','hc-sis-circ','hc-sis-nerv','hc-sis-uro','hc-sis-musc','hc-lcolor','hc-dxbio','hc-dxmtch','hc-puntos'];
+
+let _hcAutoTimer = null;
+function actualizarProgresoHC() {
+  let llenos = 0;
+  _hcCampos.forEach(id=>{ if((val(id)||'').trim()) llenos++; });
+  const pct = Math.round((llenos/_hcCampos.length)*100);
+  const barra = document.getElementById('hc-progreso-barra');
+  const txt = document.getElementById('hc-progreso-txt');
+  if(barra) barra.style.width = pct+'%';
+  if(txt) txt.textContent = pct+'% completado';
+  // Autoguardado con debounce (guarda borrador cada 3s tras dejar de escribir)
+  clearTimeout(_hcAutoTimer);
+  _hcAutoTimer = setTimeout(autoguardarHC, 3000);
+}
+
+async function autoguardarHC() {
+  if(!citaActual || !citaActual.pac_id) return;
+  const borrador = {};
+  const mapa = {'hc-motivo':'motivo','hc-padec':'padec','hc-padre':'padre','hc-madre':'madre','hc-alerg':'alergias','hc-meds':'meds','hc-ta':'ta','hc-peso':'peso','hc-talla':'talla','hc-lcolor':'lcolor','hc-dxbio':'dxbio','hc-dxmtch':'dxmtch','hc-puntos':'puntos','hc-sis-dig':'sis_dig','hc-sis-resp':'sis_resp','hc-sis-circ':'sis_circ','hc-sis-nerv':'sis_nerv','hc-sis-uro':'sis_uro','hc-sis-musc':'sis_musc','hc-zonas':'expl_obs','hc-ocup':'ocup','hc-dom':'dom'};
+  Object.entries(mapa).forEach(([id,campo])=>{ const v=val(id); if(v) borrador[campo]=v; });
+  if(Object.keys(borrador).length===0) return;
+  try {
+    await sb('pacientes','PATCH',borrador,`?id=eq.${citaActual.pac_id}`);
+    const ind = document.getElementById('hc-autoguardado');
+    if(ind){ ind.style.opacity='1'; setTimeout(()=>{ind.style.opacity='0';},2000); }
+  } catch(e){}
+}
+
 async function guardarHC() {
   const nombre=document.getElementById('hc-nombre').value.trim();
   if(!nombre){toast('⚠ El nombre es obligatorio');return;}
@@ -412,28 +454,50 @@ async function guardarHC() {
 }
 
 /* ============ COBROS ============ */
+let _cobroEnProceso = false;
 async function confirmarCobro() {
+  if(_cobroEnProceso) return; // evita dobles clics
   const pacId=document.getElementById('cob-pac').value;
   if(!pacId){toast('⚠ Selecciona un paciente');return;}
   const metEl=document.querySelector('.met.on');
   const met=metEl?metEl.dataset.met:'Efectivo';
-  const monto=parseInt(document.getElementById('cob-serv').value)||0;
-  const serv=document.getElementById('cob-serv').options[document.getElementById('cob-serv').selectedIndex].text.split(' — ')[0];
-  const pac=PACS.find(p=>p.id===pacId)||{nombre:'Paciente'};
+  const servSel=document.getElementById('cob-serv');
+  const monto=parseInt(servSel.value)||0;
+  if(monto<=0){toast('⚠ Selecciona un servicio con monto');return;}
+  const serv=servSel.options[servSel.selectedIndex].text.split(' — ')[0];
+  // Buscar el nombre del paciente: primero en memoria, si no, en el select
+  let pacNombre = (PACS.find(p=>p.id===pacId)||{}).nombre;
+  if(!pacNombre){
+    const opt=document.getElementById('cob-pac').selectedOptions[0];
+    pacNombre = opt?opt.text:'Paciente';
+  }
   const folio='BQ-'+new Date().getFullYear()+'-'+String(COBROS.length+1).padStart(4,'0');
-  const cobro={id:uid(),pac_id:pacId,pac_nombre:pac.nombre,serv,monto,met,
+  const cobro={id:uid(),pac_id:pacId,pac_nombre:pacNombre,serv,monto,met,
     fecha:hoy(),hora:new Date().toTimeString().slice(0,5),
     folio,estado:'Pagado',doctor_id:doctorActual.id,doctor_nombre:doctorActual.nombre};
+  _cobroEnProceso = true;
+  const btn=document.getElementById('btn-confirmar-cobro');
+  if(btn){btn.disabled=true;btn.style.opacity='.6';}
   try {
-    await sb('cobros','POST',cobro);
+    const res = await sb('cobros','POST',cobro);
+    // Verificar que sí se guardó
+    if(res===null || (Array.isArray(res)&&res.length===0)){
+      throw new Error('No se pudo guardar, intenta de nuevo');
+    }
     COBROS.unshift(cobro);
+    // Marcar cita como pagada si existe
     const cp=CITAS.find(c=>c.pac_id===pacId&&c.fecha===hoy()&&c.estado!=='Pagado');
-    if(cp){cp.estado='Pagado';await sb('citas','PATCH',{estado:'Pagado'},`?id=eq.${cp.id}`);}
+    if(cp){cp.estado='Pagado';try{await sb('citas','PATCH',{estado:'Pagado'},`?id=eq.${cp.id}`);}catch(e){}}
     cm('cobrar');
-    if(document.getElementById('gent').checked){generarTicket(cobro);om('ticket');}
+    if(document.getElementById('gent')&&document.getElementById('gent').checked){generarTicket(cobro);om('ticket');}
     renderAgenda();renderCaja();actualizarBadges();
     toast('✓ Cobro registrado — '+folio);
-  } catch(e){toast('⚠ Error: '+e.message);}
+  } catch(e){
+    toast('⚠ Error: '+e.message);
+  } finally {
+    _cobroEnProceso = false;
+    if(btn){btn.disabled=false;btn.style.opacity='1';}
+  }
 }
 
 function generarTicket(c) {
@@ -663,14 +727,8 @@ async function asegurarPacientesCompletos() {
 
 async function cargarPacientesRecientes() {
   const tb = document.getElementById('tb-pac');
-  if (tb && !PACS.length) tb.innerHTML = '<tr><td colspan="6"><div class="loading">Cargando pacientes…</div></td></tr>';
-  try {
-    const recientes = await sb('pacientes','GET',null,`?order=created_at.desc&limit=50${qPacientes()}`) || [];
-    recientes.forEach(p=>{ if(!PACS.find(x=>x.id===p.id)) PACS.push(p); });
-    renderPacs(recientes);
-  } catch(e) {
-    renderPacs(PACS.slice(0,50));
-  }
+  // Vista de Pacientes = BÚSQUEDA. No lista todos, solo invita a buscar.
+  if (tb) tb.innerHTML = '<tr><td colspan="6"><div class="empty"><i class="ti ti-search"></i>Escribe un nombre o teléfono arriba para buscar un paciente</div></td></tr>';
 }
 
 function renderPacs(lista) {
@@ -685,7 +743,10 @@ function renderPacs(lista) {
       <td class="hide-sm">${p.tel||'—'}</td>
       <td class="hide-sm" style="white-space:normal">${p.motivo||p.dxbio||'—'}</td>
       <td>${citas.length}</td>
-      <td><button class="ra" onclick="abrirSOAPpaciente('${p.id}','${p.nombre}')"><i class="ti ti-file-text"></i></button></td>
+      <td style="white-space:nowrap">
+        <button class="ra" onclick="verHistoriaClinica('${p.id}')" title="Ver historia clínica"><i class="ti ti-clipboard-text"></i></button>
+        <button class="ra" onclick="abrirSOAPpaciente('${p.id}','${p.nombre}')" title="Notas de evolución"><i class="ti ti-file-text"></i></button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -785,7 +846,100 @@ function renderExp(){
   }).join('');
 }
 
-/* ============ ADMIN ============ */
+/* ============ GASTOS / EGRESOS ============ */
+let _gastoEnProceso = false;
+async function guardarGasto() {
+  if(_gastoEnProceso) return;
+  const concepto = val('ga-concepto').trim();
+  const monto = parseInt(val('ga-monto'))||0;
+  if(!concepto){ toast('⚠ Escribe el concepto del gasto'); return; }
+  if(monto<=0){ toast('⚠ El monto debe ser mayor a 0'); return; }
+  const gasto = {
+    id: uid(),
+    concepto,
+    categoria: val('ga-categoria'),
+    monto,
+    metodo: val('ga-metodo'),
+    fecha: val('ga-fecha')||hoy(),
+    notas: val('ga-notas'),
+    doctor_id: doctorActual?.id,
+    doctor_nombre: doctorActual?.nombre,
+    created_at: new Date().toISOString()
+  };
+  _gastoEnProceso = true;
+  const btn=document.getElementById('btn-guardar-gasto');
+  if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  try {
+    const res = await sb('gastos','POST',gasto);
+    if(res===null || (Array.isArray(res)&&res.length===0)) throw new Error('No se pudo guardar');
+    if(typeof GASTOS!=='undefined') GASTOS.unshift(gasto);
+    cm('gasto');
+    // Limpiar campos
+    ['ga-concepto','ga-monto','ga-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+    renderCaja();
+    toast('✓ Gasto registrado: '+fmtM(monto));
+  } catch(e){
+    toast('⚠ Error: '+e.message);
+  } finally {
+    _gastoEnProceso = false;
+    if(btn){btn.disabled=false;btn.style.opacity='1';}
+  }
+}
+
+/* ============ CONSULTAR HISTORIA CLÍNICA GUARDADA ============ */
+async function verHistoriaClinica(pacId) {
+  // Traer el paciente completo desde la base (por si no está en memoria)
+  let p = PACS.find(x=>x.id===pacId);
+  try {
+    const res = await sb('pacientes','GET',null,`?id=eq.${pacId}`);
+    if(res && res[0]) p = res[0];
+  } catch(e){}
+  if(!p){ toast('⚠ No se encontró el paciente'); return; }
+
+  const edad = p.fnac?Math.floor((new Date()-new Date(p.fnac))/31557600000):'—';
+  const dato=(l,v)=> v?`<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--text-ter);text-transform:uppercase">${l}</span><br><span style="font-size:13px">${v}</span></div>`:'';
+  const seccion=(t)=>`<div style="font-size:12px;font-weight:600;color:var(--g);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">${t}</div>`;
+
+  const html = `
+    ${seccion('Datos personales')}
+    ${dato('Nombre', p.nombre)}
+    <div style="display:flex;gap:20px">${dato('Edad', edad+' años')}${dato('Sexo', p.sexo)}${dato('Teléfono', p.tel)}</div>
+    ${dato('Ocupación', p.ocup)}${dato('Domicilio', p.dom)}
+    ${dato('Contacto emergencia', p.resp)}${dato('Tel. emergencia', p.telemer)}
+
+    ${seccion('Motivo y padecimiento')}
+    ${dato('Motivo de consulta', p.motivo)}
+    ${dato('Padecimiento actual', p.padec)}
+
+    ${seccion('Antecedentes')}
+    ${dato('Heredofamiliares — padre', p.padre)}
+    ${dato('Heredofamiliares — madre', p.madre)}
+    ${dato('Alergias', p.alergias)}
+    ${dato('Medicamentos', p.meds)}
+
+    ${seccion('Interrogatorio por aparatos y sistemas')}
+    ${dato('Digestivo', p.sis_dig)}
+    ${dato('Respiratorio', p.sis_resp)}
+    ${dato('Circulatorio / Cardiovascular', p.sis_circ)}
+    ${dato('Nervioso', p.sis_nerv)}
+    ${dato('Urogenital', p.sis_uro)}
+    ${dato('Músculo-esquelético', p.sis_musc)}
+    ${dato('Observaciones exploración', p.expl_obs)}
+
+    ${seccion('Signos y medidas')}
+    <div style="display:flex;gap:20px;flex-wrap:wrap">${dato('T/A', p.ta)}${dato('Peso', p.peso)}${dato('Talla', p.talla)}${dato('Color lengua', p.lcolor)}</div>
+
+    ${seccion('Diagnóstico y plan')}
+    ${dato('Dx biomédico', p.dxbio)}
+    ${dato('Dx MTCH', p.dxmtch)}
+    ${dato('Puntos / plan de tratamiento', p.puntos)}
+  `;
+
+  document.getElementById('vhc-titulo').textContent = 'Historia clínica — '+p.nombre;
+  document.getElementById('vhc-body').innerHTML = html;
+  om('verhc');
+}
+
 /* ============ ADMIN ============ */
 function renderAdmin(){
   // Sección doctores
