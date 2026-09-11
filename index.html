@@ -977,9 +977,14 @@
         <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="ins-nombre" type="text"></div>
         <div class="fg"><label class="fl">Teléfono</label><input class="fi" id="ins-tel" type="tel"></div>
       </div>
+      <div class="sep">Pago</div>
       <div class="fr">
-        <div class="fg"><label class="fl">Anticipo pagado</label><input class="fi" id="ins-anticipo" type="number" placeholder="0" oninput="calcResto()"></div>
+        <div class="fg"><label class="fl">Precio total *</label><input class="fi" id="ins-precio" type="number" placeholder="0" oninput="calcResto()"><span style="font-size:10px;color:var(--text-ter)">Edítalo si acordaste un precio especial</span></div>
+        <div class="fg"><label class="fl">Pagó ahora</label><input class="fi" id="ins-anticipo" type="number" placeholder="0" oninput="calcResto()"></div>
+      </div>
+      <div class="fr">
         <div class="fg"><label class="fl">Resto pendiente</label><input class="fi" id="ins-resto" type="text" readonly></div>
+        <div class="fg"><label class="fl">Estado</label><input class="fi" id="ins-estado-preview" type="text" readonly></div>
       </div>
       <div class="fr1"><div class="fg"><label class="fl">Notas</label><input class="fi" id="ins-notas" type="text" placeholder="Observaciones..."></div></div>
     </div>

@@ -1204,17 +1204,18 @@ function abrirInscribir(cursoId) {
   insAlumnoSel = null;
   document.getElementById('ins-curso-id').value = cursoId;
   document.getElementById('ins-curso-nombre').textContent = c.nombre;
-  ['ins-nombre','ins-tel','ins-notas','ins-buscar'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('ins-anticipo').value = c.anticipo||'';
-  document.getElementById('ins-resto').value = fmtM((c.precio||0)-(c.anticipo||0));
+  ['ins-nombre','ins-tel','ins-notas','ins-buscar','ins-anticipo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  // Precio editable, prellenado con el del curso
+  const precio = parseFloat(c.precio)||0;
+  document.getElementById('ins-precio').value = precio;
+  document.getElementById('ins-resto').value = fmtM(precio);
+  document.getElementById('ins-estado-preview').value = 'Prospecto';
   document.getElementById('ins-resultados').style.display='none';
-  // Aviso si es paquete
   const aviso = document.getElementById('ins-aviso-paquete');
   if (aviso) {
     if (c.es_paquete) {
-      const incluidos = (c.cursos_incluidos||[]).length || 4;
       aviso.style.display = 'block';
-      aviso.innerHTML = `<i class="ti ti-package"></i> Este es el paquete completo. Al inscribir se apartará el lugar en los ${incluidos} cursos automáticamente, con pago único de ${fmtM(c.precio||0)}.`;
+      aviso.innerHTML = `<i class="ti ti-package"></i> Paquete completo. Al inscribir se aparta el lugar en los 4 cursos de herbolaria automáticamente. Ajusta el precio total si acordaste una promoción (ej. $600).`;
     } else {
       aviso.style.display = 'none';
     }
@@ -1223,10 +1224,16 @@ function abrirInscribir(cursoId) {
 }
 
 function calcResto() {
-  const cursoId = document.getElementById('ins-curso-id').value;
-  const c = CURSOS.find(x=>x.id===cursoId); if(!c) return;
-  const ant = parseFloat(document.getElementById('ins-anticipo').value)||0;
-  document.getElementById('ins-resto').value = fmtM((c.precio||0)-ant);
+  const precio = parseFloat(document.getElementById('ins-precio').value)||0;
+  const pago = parseFloat(document.getElementById('ins-anticipo').value)||0;
+  const resto = Math.max(0, precio - pago);
+  document.getElementById('ins-resto').value = fmtM(resto);
+  // Preview del estado
+  let estado = 'Prospecto';
+  if (pago >= precio && precio > 0) estado = 'Pagado';
+  else if (pago > 0) estado = 'Apartado';
+  const prev = document.getElementById('ins-estado-preview');
+  if (prev) prev.value = estado;
 }
 
 function buscarAlumnoInsc(q) {
@@ -1253,62 +1260,84 @@ function selAlumnoInsc(pacId) {
   document.getElementById('ins-buscar').value='';
 }
 
+let _inscEnProceso = false;
 async function guardarInscripcion() {
+  if(_inscEnProceso) return;
   const cursoId = document.getElementById('ins-curso-id').value;
   const c = CURSOS.find(x=>x.id===cursoId); if(!c) return;
   const nombre = document.getElementById('ins-nombre').value.trim();
   const tel = document.getElementById('ins-tel').value.trim();
   if(!nombre){toast('⚠ El nombre es obligatorio');return;}
-  const anticipo = parseFloat(document.getElementById('ins-anticipo').value)||0;
+  const precioTotal = parseFloat(document.getElementById('ins-precio').value)||0;
+  const pago = parseFloat(document.getElementById('ins-anticipo').value)||0;
   const telNorm = tel.replace(/[^0-9]/g,'').slice(-10);
+  const notas = document.getElementById('ins-notas').value;
 
-  // ---- Si es PAQUETE: usar la función que inscribe en los 4 cursos ----
-  if (c.es_paquete) {
-    try {
+  _inscEnProceso = true;
+  const btns = document.querySelectorAll('#m-inscribir .btn-g');
+  btns.forEach(b=>{b.disabled=true;b.style.opacity='.6';});
+
+  try {
+    // ---- PAQUETE: inscribe en los 4 cursos con el precio real pagado ----
+    if (c.es_paquete) {
       const r = await sb('inscribir_paquete','POST',{
         p_paquete_id: cursoId,
         p_nombre: nombre,
         p_tel: telNorm,
-        p_anticipo: anticipo,
-        p_notas: document.getElementById('ins-notas').value
+        p_notas: notas,
+        p_precio_pagado: precioTotal,
+        p_anticipo: pago
       },'');
-      const res = Array.isArray(r) ? (r[0]?.inscribir_paquete || r[0]) : (r.inscribir_paquete || r);
+      const res = Array.isArray(r) ? (r[0]?.inscribir_paquete || r[0]) : (r?.inscribir_paquete || r);
       if (res && res.ok === false) { toast('⚠ '+res.mensaje); return; }
-      // Recargar inscripciones para reflejar los 4 cursos + el paquete
       await cargarCursos();
-      cm('inscribir'); renderCursos();
+      cm('inscribir'); renderCursos(); renderDorados();
       toast('✓ '+(res?.mensaje || nombre+' inscrito en el paquete'));
-    } catch(e){ toast('⚠ Error: '+e.message); }
-    return;
-  }
+      return;
+    }
 
-  // ---- Inscripción normal a un solo curso ----
-  if(inscritosDe(cursoId).length >= c.cupo){toast('⚠ El curso ya está lleno');return;}
+    // ---- Curso individual ----
+    if(inscritosDe(cursoId).length >= (c.cupo||30)){toast('⚠ El curso ya está lleno');return;}
 
-  // Buscar/crear alumno
-  let pac = insAlumnoSel;
-  if(!pac && telNorm) pac = PACS.find(p=>(p.tel||'').replace(/[^0-9]/g,'').slice(-10)===telNorm);
-  if(!pac) pac = PACS.find(p=>p.nombre.toLowerCase().trim()===nombre.toLowerCase().trim());
-  if(!pac){
-    pac={id:uid(),nombre,tel:telNorm,fecha_reg:hoy(),doctor_id:doctorActual?.id};
-    try{await sb('pacientes','POST',pac);PACS.unshift(pac);}catch(e){toast('⚠ Error: '+e.message);return;}
-  }
+    // Buscar/crear alumno (robusto: busca en base si no está en memoria)
+    let pac = insAlumnoSel;
+    if(!pac && telNorm){
+      pac = PACS.find(p=>(p.tel||'').replace(/[^0-9]/g,'').slice(-10)===telNorm);
+      if(!pac){
+        try{ const r=await sb('pacientes','GET',null,`?tel=ilike.*${telNorm}*&limit=1`); if(r&&r[0])pac=r[0]; }catch(e){}
+      }
+    }
+    if(!pac){
+      pac={id:uid(),nombre,tel:telNorm,tipo:'alumno',origen:'manual',fecha_reg:hoy(),doctor_id:doctorActual?.id};
+      const rp = await sb('pacientes','POST',pac);
+      if(rp===null||(Array.isArray(rp)&&rp.length===0)) throw new Error('No se pudo crear el alumno');
+      PACS.unshift(pac);
+    }
 
-  const insc = {
-    id: uid(), curso_id: cursoId, curso_nombre: c.nombre,
-    pac_id: pac.id, alumno_nombre: nombre, alumno_tel: telNorm,
-    modalidad: c.modalidad, precio_total: c.precio||0,
-    anticipo_pagado: anticipo, resto_pendiente: (c.precio||0)-anticipo,
-    estado: anticipo>=(c.precio||0)?'Pagado':'Apartado',
-    origen: 'manual', notas: document.getElementById('ins-notas').value,
-    fecha_inscripcion: hoy(), doctor_id: doctorActual?.id
-  };
-  try {
-    await sb('inscripciones','POST',insc);
+    const estado = pago>=precioTotal&&precioTotal>0 ? 'Pagado' : (pago>0?'Apartado':'Prospecto');
+    const insc = {
+      id: uid(), curso_id: cursoId, curso_nombre: c.nombre,
+      pac_id: pac.id, alumno_nombre: nombre, alumno_tel: telNorm,
+      modalidad: c.modalidad, precio_total: precioTotal,
+      anticipo_pagado: pago, resto_pendiente: Math.max(0,precioTotal-pago),
+      estado, origen: 'manual', notas,
+      fecha_inscripcion: hoy(), doctor_id: doctorActual?.id
+    };
+    const ri = await sb('inscripciones','POST',insc);
+    if(ri===null||(Array.isArray(ri)&&ri.length===0)) throw new Error('No se pudo guardar la inscripción');
     INSCRIPCIONES.unshift(insc);
-    cm('inscribir'); renderCursos();
+    // Si pagó algo, registrar en caja
+    if(pago>0){
+      try{ await sb('cobros','POST',{id:uid(),pac_id:pac.id,pac_nombre:nombre,serv:'Curso: '+c.nombre,monto:pago,met:'Efectivo',fecha:hoy(),folio:'BQ-'+new Date().getFullYear()+'-C'+String(COBROS.length+1).padStart(3,'0'),estado:'Pagado',doctor_id:doctorActual?.id,doctor_nombre:doctorActual?.nombre}); }catch(e){}
+    }
+    cm('inscribir'); renderCursos(); renderDorados();
     toast('✓ '+nombre+' inscrito en '+c.nombre);
-  } catch(e){toast('⚠ Error: '+e.message);}
+  } catch(e){
+    toast('⚠ Error: '+e.message);
+  } finally {
+    _inscEnProceso = false;
+    btns.forEach(b=>{b.disabled=false;b.style.opacity='1';});
+  }
 }
 
 /* ---- Ver inscritos ---- */
