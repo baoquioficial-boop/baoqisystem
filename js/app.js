@@ -2204,11 +2204,25 @@ function telLegibleInt(t) {
 }
 
 let _tabInteresadosActual = 'interes_real';
+let _tipoInteresadosActual = '';
 function tabInteresados(tab, btn){
   _tabInteresadosActual = tab;
   document.querySelectorAll('#pg-interesados .tab').forEach(t=>t.classList.remove('on'));
   if(btn) btn.classList.add('on');
   renderInteresados();
+}
+function filtroTipoInt(tipo, btn){
+  _tipoInteresadosActual = tipo;
+  document.querySelectorAll('#pg-interesados .chip-tipo').forEach(t=>t.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  renderInteresados();
+}
+
+function normTipo(interes){
+  if(interes==='jueves_dorados') return 'jueves_dorados';
+  if(interes==='curso_herbolaria'||interes==='curso') return 'curso';
+  if(interes==='consulta') return 'consulta';
+  return 'otro';
 }
 
 function renderInteresados() {
@@ -2226,11 +2240,14 @@ function renderInteresados() {
   const tab = _tabInteresadosActual;
   let lista;
   if (tab==='interes_real' || tab==='solo_pregunto') {
-    // Pestañas por clasificación: solo los que siguen "activos" (nuevos)
     lista = INTERESADOS.filter(i=>i.clasificacion===tab && i.estado!=='Convertido' && i.estado!=='Descartado' && i.estado!=='Contactado');
   } else {
-    // Pestañas por estado
     lista = INTERESADOS.filter(i=>i.estado===tab);
+  }
+
+  // Aplicar filtro por TIPO
+  if (_tipoInteresadosActual) {
+    lista = lista.filter(i=>normTipo(i.interes)===_tipoInteresadosActual);
   }
 
   // Ordenar por fecha más reciente

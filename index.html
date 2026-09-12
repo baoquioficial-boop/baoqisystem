@@ -375,12 +375,20 @@
         <div class="info-box"><i class="ti ti-info-circle"></i>Personas que escribieron por WhatsApp. Toca una tarjeta para ver el detalle. Contáctalos manualmente desde tu teléfono con el número que aparece. Marca "Contactado" cuando ya les escribiste.</div>
 
         <!-- Pestañas de interesados -->
-        <div class="tabs" style="margin-bottom:14px">
+        <div class="tabs" style="margin-bottom:10px">
           <button class="tab on" id="itab-interes_real" onclick="tabInteresados('interes_real',this)">🔥 Interés real <span class="tab-count" id="cnt-interes_real">0</span></button>
           <button class="tab" id="itab-solo_pregunto" onclick="tabInteresados('solo_pregunto',this)">Solo preguntaron <span class="tab-count" id="cnt-solo_pregunto">0</span></button>
           <button class="tab" id="itab-Contactado" onclick="tabInteresados('Contactado',this)">Contactados <span class="tab-count" id="cnt-Contactado">0</span></button>
           <button class="tab" id="itab-Convertido" onclick="tabInteresados('Convertido',this)">Convertidos <span class="tab-count" id="cnt-Convertido">0</span></button>
           <button class="tab" id="itab-Descartado" onclick="tabInteresados('Descartado',this)">Descartados <span class="tab-count" id="cnt-Descartado">0</span></button>
+        </div>
+
+        <!-- Filtro por TIPO de interés -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+          <button class="chip-tipo on" data-tipo="" onclick="filtroTipoInt('',this)">Todos</button>
+          <button class="chip-tipo" data-tipo="consulta" onclick="filtroTipoInt('consulta',this)">🩺 Consultas</button>
+          <button class="chip-tipo" data-tipo="curso" onclick="filtroTipoInt('curso',this)">🌿 Cursos</button>
+          <button class="chip-tipo" data-tipo="jueves_dorados" onclick="filtroTipoInt('jueves_dorados',this)">☀️ Jueves Dorados</button>
         </div>
 
         <div id="int-cards"></div>
