@@ -857,6 +857,26 @@
   </div>
 </div>
 
+<!-- EDITAR PACIENTE (rápido, desde cualquier lado) -->
+<div class="mw" id="m-editpac">
+  <div class="mo mo-sm">
+    <div class="mh">
+      <span class="mht"><i class="ti ti-user-edit" style="color:var(--g);margin-right:5px"></i>Editar paciente</span>
+      <button class="mx" onclick="cm('editpac')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mb">
+      <div class="fr1"><div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="ep-nombre" type="text"></div></div>
+      <div class="fr"><div class="fg"><label class="fl">Teléfono</label><input class="fi" id="ep-tel" type="tel"></div><div class="fg"><label class="fl">Fecha de nacimiento</label><input class="fi" id="ep-fnac" type="date"></div></div>
+      <div class="fr1"><div class="fg"><label class="fl">Email</label><input class="fi" id="ep-email" type="email"></div></div>
+      <div class="info-box" style="margin-top:4px"><i class="ti ti-info-circle"></i>Al cambiar el nombre se actualiza también en la agenda y las citas de este paciente.</div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="cm('editpac')">Cancelar</button>
+      <button class="btn btn-g" id="btn-guardar-editpac" onclick="guardarPacienteEditado()"><i class="ti ti-check"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="mw" id="m-verhc">
   <div class="mo">
     <div class="mh">

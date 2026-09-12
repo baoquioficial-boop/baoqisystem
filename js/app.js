@@ -751,6 +751,7 @@ function renderPacs(lista) {
       <td class="hide-sm" style="white-space:normal">${p.motivo||p.dxbio||'—'}</td>
       <td>${citas.length}</td>
       <td style="white-space:nowrap">
+        <button class="ra" onclick="editarPacienteRapido('${p.id}')" title="Editar datos"><i class="ti ti-user-edit"></i></button>
         <button class="ra" onclick="verHistoriaClinica('${p.id}')" title="Ver historia clínica"><i class="ti ti-clipboard-text"></i></button>
         <button class="ra" onclick="abrirSOAPpaciente('${p.id}','${p.nombre}')" title="Notas de evolución"><i class="ti ti-file-text"></i></button>
       </td>
@@ -1897,6 +1898,60 @@ async function eliminarCita(citaId) {
   } catch(e){ toast('⚠ Error: '+e.message); }
 }
 
+/* ============ EDITAR PACIENTE (universal, desde cualquier lado) ============ */
+let _pacEditandoId = null;
+async function editarPacienteRapido(pacId) {
+  // Traer datos frescos del paciente
+  let p = PACS.find(x=>x.id===pacId);
+  if(!p){
+    try{ const r=await sb('pacientes','GET',null,`?id=eq.${pacId}`); if(r&&r[0])p=r[0]; }catch(e){}
+  }
+  if(!p){ toast('⚠ No se encontró el paciente'); return; }
+  _pacEditandoId = pacId;
+  document.getElementById('ep-nombre').value = p.nombre||'';
+  document.getElementById('ep-tel').value = p.tel||'';
+  document.getElementById('ep-email').value = p.email||'';
+  document.getElementById('ep-fnac').value = p.fnac||'';
+  om('editpac');
+}
+
+async function guardarPacienteEditado() {
+  if(!_pacEditandoId) return;
+  const nombre = document.getElementById('ep-nombre').value.trim();
+  const tel = document.getElementById('ep-tel').value.trim();
+  if(!nombre){ toast('⚠ El nombre es obligatorio'); return; }
+  const datos = {
+    nombre,
+    tel: tel.replace(/[^0-9]/g,'').slice(-10),
+    email: document.getElementById('ep-email').value.trim(),
+    fnac: document.getElementById('ep-fnac').value
+  };
+  const btn = document.getElementById('btn-guardar-editpac');
+  if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  try {
+    const r = await sb('pacientes','PATCH',datos,`?id=eq.${_pacEditandoId}`);
+    if(r===null||(Array.isArray(r)&&r.length===0)) throw new Error('No se pudo guardar');
+    // Actualizar en memoria
+    const idx = PACS.findIndex(x=>x.id===_pacEditandoId);
+    if(idx>=0) PACS[idx] = {...PACS[idx], ...datos};
+    // Actualizar el nombre en las citas de ese paciente (para que se refleje en agenda)
+    const citasDelPac = CITAS.filter(c=>c.pac_id===_pacEditandoId);
+    for(const c of citasDelPac){
+      c.pac_nombre = nombre;
+      try{ await sb('citas','PATCH',{pac_nombre:nombre,tel_contacto:datos.tel},`?id=eq.${c.id}`); }catch(e){}
+    }
+    cm('editpac');
+    // Refrescar la vista actual
+    renderAgenda();
+    if(typeof renderPacs==='function' && document.getElementById('pg-pac')?.classList.contains('on')) filtrarPacs(document.getElementById('pac-buscar')?.value||'');
+    toast('✓ Paciente actualizado');
+  } catch(e){
+    toast('⚠ Error: '+e.message);
+  } finally {
+    if(btn){btn.disabled=false;btn.style.opacity='1';}
+  }
+}
+
 function menuCita(citaId, ev) {
   ev.stopPropagation();
   // Cerrar cualquier menú abierto
@@ -1906,8 +1961,9 @@ function menuCita(citaId, ev) {
   pop.className = 'cita-menu-pop';
   pop.style.cssText = 'position:absolute;right:0;top:100%;background:white;border:.5px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:50;min-width:160px;overflow:hidden';
   pop.innerHTML = `
+    <button onclick="editarPacienteRapido('${cita.pac_id}');this.closest('.cita-menu-pop').remove()" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;font-size:13px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--bg-sec)'" onmouseout="this.style.background='none'"><i class="ti ti-user-edit"></i> Editar paciente</button>
     ${cita.estado!=='Cancelada'?`<button onclick="cancelarCita('${citaId}');this.closest('.cita-menu-pop').remove()" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;font-size:13px;cursor:pointer;color:var(--aud);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--bg-sec)'" onmouseout="this.style.background='none'"><i class="ti ti-ban"></i> Cancelar cita</button>`:''}
-    <button onclick="eliminarCita('${citaId}');this.closest('.cita-menu-pop').remove()" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;font-size:13px;cursor:pointer;color:#A32D2D;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#FCEBEB'" onmouseout="this.style.background='none'"><i class="ti ti-trash"></i> Eliminar</button>`;
+    <button onclick="eliminarCita('${citaId}');this.closest('.cita-menu-pop').remove()" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;font-size:13px;cursor:pointer;color:#A32D2D;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#FCEBEB'" onmouseout="this.style.background='none'"><i class="ti ti-trash"></i> Eliminar cita</button>`;
   ev.currentTarget.parentElement.style.position='relative';
   ev.currentTarget.parentElement.appendChild(pop);
   // Cerrar al hacer clic fuera
