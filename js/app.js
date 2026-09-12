@@ -253,6 +253,13 @@ async function guardarCitaSimple() {
   if(telDigitos.length < 10){
     toast('⚠ El teléfono debe tener 10 dígitos');return;
   }
+  // 🔒 CANDADO 2b: no usar el teléfono del consultorio como el del paciente
+  const TEL_CONSULTORIO = '5639541510';
+  if(telDigitos.slice(-10) === TEL_CONSULTORIO){
+    if(!confirm('⚠ Ese es el teléfono del consultorio, no el del paciente.\n\n¿Seguro que quieres guardarlo así? Se recomienda poner el teléfono real del paciente.')){
+      return;
+    }
+  }
   // 🔒 CANDADO 3: fecha obligatoria y del año actual (evita el bug de años viejos)
   if(!fecha){toast('⚠ La fecha es obligatoria');return;}
   const anioFecha = parseInt(fecha.slice(0,4));
@@ -2196,85 +2203,105 @@ function telLegibleInt(t) {
   return (t||'').replace('@s.whatsapp.net','').replace('@c.us','').replace(/[^0-9]/g,'').slice(-10);
 }
 
-function renderInteresados() {
-  const filtro = document.getElementById('int-filtro')?.value || '';
-  const clasif = document.getElementById('int-clasif')?.value || '';
-  let lista = INTERESADOS.slice();
-  if (filtro) lista = lista.filter(i=>i.estado===filtro);
-  if (clasif) lista = lista.filter(i=>i.clasificacion===clasif);
-
-  // Métricas
-  document.getElementById('int-nuevos').textContent = INTERESADOS.filter(i=>i.estado==='Nuevo').length;
-  document.getElementById('int-contactados').textContent = INTERESADOS.filter(i=>i.estado==='Contactado').length;
-  document.getElementById('int-convertidos').textContent = INTERESADOS.filter(i=>i.estado==='Convertido').length;
-  document.getElementById('int-total').textContent = INTERESADOS.length;
-
-  const tb = document.getElementById('tb-interesados');
-  if (!lista.length) {
-    tb.innerHTML = '<tr><td colspan="5"><div class="empty"><i class="ti ti-user-search"></i>Sin interesados en esta vista</div></td></tr>';
-    return;
-  }
-
-  // Agrupar por tipo de interés y ordenar: herbolaria, jueves dorados, consulta, otros
-  const grupos = {
-    'curso_herbolaria': {label:'🌿 Cursos de herbolaria', items:[]},
-    'jueves_dorados': {label:'☀️ Jueves Dorados', items:[]},
-    'consulta': {label:'🩺 Consultas', items:[]},
-    'otro': {label:'📋 Otros', items:[]}
-  };
-  lista.forEach(i=>{
-    let k = i.interes;
-    if (k==='curso') k='curso_herbolaria';
-    if (!grupos[k]) k='otro';
-    grupos[k].items.push(i);
-  });
-
-  // Dentro de cada grupo, ordenar por: interés real primero, luego nuevos
-  const ordenClasif = {'interes_real':0,'solo_pregunto':1,'no_interesado':2,'':3};
-  Object.values(grupos).forEach(g=>{
-    g.items.sort((a,b)=>(ordenClasif[a.clasificacion||'']??3)-(ordenClasif[b.clasificacion||'']??3));
-  });
-
-  let html = '';
-  for (const key of ['curso_herbolaria','jueves_dorados','consulta','otro']) {
-    const g = grupos[key];
-    if (!g.items.length) continue;
-    // Encabezado de grupo
-    html += `<tr style="background:var(--bg-sec)"><td colspan="5" style="padding:8px 12px;font-size:12px;font-weight:600;color:var(--text-sec)">${g.label} <span style="color:var(--text-ter);font-weight:400">(${g.items.length})</span></td></tr>`;
-    html += g.items.map(filaInteresado).join('');
-  }
-  tb.innerHTML = html;
+let _tabInteresadosActual = 'interes_real';
+function tabInteresados(tab, btn){
+  _tabInteresadosActual = tab;
+  document.querySelectorAll('#pg-interesados .tab').forEach(t=>t.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  renderInteresados();
 }
 
-function filaInteresado(i) {
+function renderInteresados() {
+  // Contar para cada pestaña
+  const cuenta = {
+    interes_real: INTERESADOS.filter(i=>i.clasificacion==='interes_real' && i.estado!=='Convertido' && i.estado!=='Descartado' && i.estado!=='Contactado').length,
+    solo_pregunto: INTERESADOS.filter(i=>i.clasificacion==='solo_pregunto' && i.estado!=='Convertido' && i.estado!=='Descartado' && i.estado!=='Contactado').length,
+    Contactado: INTERESADOS.filter(i=>i.estado==='Contactado').length,
+    Convertido: INTERESADOS.filter(i=>i.estado==='Convertido').length,
+    Descartado: INTERESADOS.filter(i=>i.estado==='Descartado').length
+  };
+  Object.entries(cuenta).forEach(([k,v])=>{ const el=document.getElementById('cnt-'+k); if(el) el.textContent=v; });
+
+  // Filtrar según la pestaña activa
+  const tab = _tabInteresadosActual;
+  let lista;
+  if (tab==='interes_real' || tab==='solo_pregunto') {
+    // Pestañas por clasificación: solo los que siguen "activos" (nuevos)
+    lista = INTERESADOS.filter(i=>i.clasificacion===tab && i.estado!=='Convertido' && i.estado!=='Descartado' && i.estado!=='Contactado');
+  } else {
+    // Pestañas por estado
+    lista = INTERESADOS.filter(i=>i.estado===tab);
+  }
+
+  // Ordenar por fecha más reciente
+  lista.sort((a,b)=> new Date(b.primer_contacto||0) - new Date(a.primer_contacto||0));
+
+  const cont = document.getElementById('int-cards');
+  if (!lista.length) {
+    cont.innerHTML = '<div class="empty"><i class="ti ti-user-search"></i>No hay interesados en esta sección</div>';
+    return;
+  }
+  cont.innerHTML = lista.map(tarjetaInteresado).join('');
+}
+
+function tarjetaInteresado(i) {
   const tel = telLegibleInt(i.telefono);
-  const estBg = i.estado==='Nuevo'?'var(--aul)':i.estado==='Convertido'?'var(--gl)':i.estado==='Descartado'?'#FCEBEB':'var(--bg-sec)';
-  const estColor = i.estado==='Nuevo'?'var(--aud)':i.estado==='Convertido'?'var(--g)':i.estado==='Descartado'?'#A32D2D':'var(--text-ter)';
-  let clasBadge = '';
-  if (i.clasificacion==='interes_real') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:var(--gl);color:var(--g);font-weight:600">🔥 Interés real</span>';
-  else if (i.clasificacion==='solo_pregunto') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:var(--aul);color:var(--aud)">Solo preguntó</span>';
-  else if (i.clasificacion==='no_interesado') clasBadge = '<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:#FCEBEB;color:#A32D2D">No interesado</span>';
+  const interesLabel = i.interes==='jueves_dorados' ? '☀️ Jueves Dorados' : (i.interes==='curso_herbolaria'||i.interes==='curso'?'🌿 Curso herbolaria':i.interes==='consulta'?'🩺 Consulta':'📋 Otro');
   const fecha = i.primer_contacto ? new Date(i.primer_contacto).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '—';
-  const waLink = `https://wa.me/52${tel}`;
   const yaContactado = i.estado==='Contactado' || i.estado==='Convertido';
-  return `<tr>
-    <td style="font-family:monospace;font-size:12px">${tel}</td>
-    <td>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span style="font-size:13px;font-weight:500">${i.nombre||'<span style="color:var(--text-ter)">Sin nombre</span>'}</span>
-        ${clasBadge}
+  // Padecimiento / dónde quedó (lo importante)
+  const padecimiento = i.donde_quedo || i.detalle || '';
+  return `
+  <div class="int-card" style="background:white;border:.5px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden">
+    <!-- Cabecera compacta (siempre visible, se toca para expandir) -->
+    <div onclick="this.parentNode.querySelector('.int-detalle').classList.toggle('abierto')" style="padding:12px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="min-width:0;flex:1">
+        <div style="font-size:14px;font-weight:600;color:var(--text)">${i.nombre||'<span style="color:var(--text-ter)">Sin nombre</span>'}</div>
+        <div style="font-size:12px;color:var(--text-sec);margin-top:2px;font-family:monospace">${tel||'sin teléfono'}</div>
       </div>
-      ${i.donde_quedo?`<div style="font-size:11px;color:var(--text-sec);margin-top:2px"><i class="ti ti-message-dots" style="vertical-align:-1px"></i> ${i.donde_quedo}</div>`:''}
-      ${i.accion_sugerida?`<div style="font-size:11px;color:var(--g);margin-top:2px"><i class="ti ti-arrow-right" style="vertical-align:-1px"></i> ${i.accion_sugerida}</div>`:''}
-    </td>
-    <td class="hide-sm" style="font-size:12px;color:var(--text-sec)">${fecha}</td>
-    <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${estBg};color:${estColor}">${i.estado}</span></td>
-    <td style="white-space:nowrap">
-      <a href="${waLink}" target="_blank" class="btn btn-sm btn-g" style="text-decoration:none" title="Contactar por WhatsApp"><i class="ti ti-brand-whatsapp"></i></a>
-      <button class="btn btn-sm" onclick="marcarContactado('${i.id}')" title="${yaContactado?'Ya contactado':'Marcar como contactado'}" ${yaContactado?'style="opacity:.5"':''}><i class="ti ti-user-check"></i></button>
-      <button class="btn btn-sm" onclick="eliminarInteresado('${i.id}')" title="Eliminar" style="color:#A32D2D"><i class="ti ti-trash"></i></button>
-    </td>
-  </tr>`;
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;color:var(--text-ter)">${interesLabel}</div>
+        <div style="font-size:10px;color:var(--text-ter);margin-top:2px">${fecha}</div>
+      </div>
+      <i class="ti ti-chevron-down" style="color:var(--text-ter);flex-shrink:0"></i>
+    </div>
+    <!-- Detalle (se expande al tocar) -->
+    <div class="int-detalle" style="max-height:0;overflow:hidden;transition:max-height .25s;border-top:0 solid var(--border)">
+      <div style="padding:12px 14px;border-top:.5px solid var(--border)">
+        ${padecimiento?`<div style="font-size:12px;color:var(--text-sec);margin-bottom:8px"><b>Dónde quedó:</b> ${padecimiento}</div>`:''}
+        ${i.accion_sugerida?`<div style="font-size:12px;color:var(--g);margin-bottom:8px"><b>Sugerencia:</b> ${i.accion_sugerida}</div>`:''}
+        ${i.notas?`<div style="font-size:12px;color:var(--text-sec);margin-bottom:8px"><b>Notas:</b> ${i.notas}</div>`:''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn btn-sm ${yaContactado?'':'btn-g'}" onclick="event.stopPropagation();marcarContactado('${i.id}')">
+            <i class="ti ti-user-check"></i> ${yaContactado?'Contactado ✓':'Marcar contactado'}
+          </button>
+          <button class="btn btn-sm" onclick="event.stopPropagation();convertirInteresado('${i.id}')"><i class="ti ti-calendar-plus"></i> Convertido</button>
+          <button class="btn btn-sm" onclick="event.stopPropagation();editarInteresado('${i.id}')"><i class="ti ti-edit"></i> Editar</button>
+          <button class="btn btn-sm" onclick="event.stopPropagation();descartarInteresado('${i.id}')" style="color:var(--text-ter)"><i class="ti ti-x"></i> Descartar</button>
+          <button class="btn btn-sm" onclick="event.stopPropagation();eliminarInteresado('${i.id}')" style="color:#A32D2D"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function convertirInteresado(id){
+  const i = INTERESADOS.find(x=>x.id===id); if(!i) return;
+  try {
+    await sb('interesados','PATCH',{estado:'Convertido'},`?id=eq.${id}`);
+    i.estado='Convertido'; renderInteresados();
+    const nb=document.getElementById('nb-interesados'); if(nb) nb.textContent=INTERESADOS.filter(x=>x.estado==='Nuevo').length;
+    toast('✓ Marcado como convertido');
+  } catch(e){ toast('⚠ Error: '+e.message); }
+}
+
+async function descartarInteresado(id){
+  const i = INTERESADOS.find(x=>x.id===id); if(!i) return;
+  try {
+    await sb('interesados','PATCH',{estado:'Descartado'},`?id=eq.${id}`);
+    i.estado='Descartado'; renderInteresados();
+    toast('Descartado');
+  } catch(e){ toast('⚠ Error: '+e.message); }
 }
 
 async function marcarContactado(id) {

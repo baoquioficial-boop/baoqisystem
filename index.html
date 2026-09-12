@@ -369,43 +369,21 @@
       <!-- INTERESADOS (preguntaron por cursos, para seguimiento) -->
       <div class="pg" id="pg-interesados">
         <div class="sh">
-          <span class="sti"><i class="ti ti-user-search" style="color:var(--g);margin-right:6px"></i>Interesados en cursos y Jueves Dorados</span>
-          <div style="display:flex;gap:6px">
-            <select class="fs" id="int-clasif" onchange="renderInteresados()" style="font-size:12px;padding:6px 10px;width:auto">
-              <option value="">Toda clasificación</option>
-              <option value="interes_real">🔥 Interés real</option>
-              <option value="solo_pregunto">Solo preguntó</option>
-              <option value="no_interesado">No interesado</option>
-            </select>
-            <select class="fs" id="int-filtro" onchange="renderInteresados()" style="font-size:12px;padding:6px 10px;width:auto">
-              <option value="">Todos</option>
-              <option value="Nuevo">Nuevos</option>
-              <option value="Contactado">Contactados</option>
-              <option value="Convertido">Convertidos</option>
-              <option value="Descartado">Descartados</option>
-            </select>
-            <button class="btn btn-sm" onclick="cargarInteresados().then(renderInteresados)"><i class="ti ti-refresh"></i></button>
-          </div>
+          <span class="sti"><i class="ti ti-user-search" style="color:var(--g);margin-right:6px"></i>Interesados</span>
+          <button class="btn btn-sm" onclick="cargarInteresados().then(renderInteresados)"><i class="ti ti-refresh"></i> Actualizar</button>
         </div>
-        <div class="info-box"><i class="ti ti-info-circle"></i>Personas que preguntaron por cursos o Jueves Dorados por WhatsApp pero no han apartado lugar. Contáctalos desde recepción para dar seguimiento. Marca "Contactado" cuando ya les hayas escrito.</div>
-        <div class="sg">
-          <div class="sc sc-g"><div class="slb">Nuevos por contactar</div><div class="sv" id="int-nuevos">0</div></div>
-          <div class="sc"><div class="slb">Contactados</div><div class="sv" id="int-contactados">0</div></div>
-          <div class="sc sc-a"><div class="slb">Convertidos</div><div class="sv" id="int-convertidos">0</div></div>
-          <div class="sc"><div class="slb">Total interesados</div><div class="sv" id="int-total">0</div></div>
+        <div class="info-box"><i class="ti ti-info-circle"></i>Personas que escribieron por WhatsApp. Toca una tarjeta para ver el detalle. Contáctalos manualmente desde tu teléfono con el número que aparece. Marca "Contactado" cuando ya les escribiste.</div>
+
+        <!-- Pestañas de interesados -->
+        <div class="tabs" style="margin-bottom:14px">
+          <button class="tab on" id="itab-interes_real" onclick="tabInteresados('interes_real',this)">🔥 Interés real <span class="tab-count" id="cnt-interes_real">0</span></button>
+          <button class="tab" id="itab-solo_pregunto" onclick="tabInteresados('solo_pregunto',this)">Solo preguntaron <span class="tab-count" id="cnt-solo_pregunto">0</span></button>
+          <button class="tab" id="itab-Contactado" onclick="tabInteresados('Contactado',this)">Contactados <span class="tab-count" id="cnt-Contactado">0</span></button>
+          <button class="tab" id="itab-Convertido" onclick="tabInteresados('Convertido',this)">Convertidos <span class="tab-count" id="cnt-Convertido">0</span></button>
+          <button class="tab" id="itab-Descartado" onclick="tabInteresados('Descartado',this)">Descartados <span class="tab-count" id="cnt-Descartado">0</span></button>
         </div>
-        <div class="tw">
-          <table>
-            <thead><tr>
-              <th style="width:120px">Teléfono</th>
-              <th>Nombre / Interés</th>
-              <th style="width:100px" class="hide-sm">Primer contacto</th>
-              <th style="width:95px">Estado</th>
-              <th style="width:150px"></th>
-            </tr></thead>
-            <tbody id="tb-interesados"></tbody>
-          </table>
-        </div>
+
+        <div id="int-cards"></div>
       </div>
 
       <!-- ATENCIÓN WHATSAPP (contactos pausados) -->

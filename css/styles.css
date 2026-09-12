@@ -450,3 +450,10 @@ tr:hover td { background: var(--bg-sec); }
 /* Asegurar que ningún elemento con ancho fijo desborde */
 * { max-width: 100%; }
 img, svg { height: auto; }
+
+/* ============ INTERESADOS — tarjetas expandibles ============ */
+.int-detalle.abierto { max-height: 400px !important; }
+.int-card .ti-chevron-down { transition: transform .25s; }
+.int-card:has(.int-detalle.abierto) .ti-chevron-down { transform: rotate(180deg); }
+.tab-count { display:inline-block; font-size:10px; background:var(--bg-sec); color:var(--text-ter); border-radius:8px; padding:1px 6px; margin-left:4px; }
+.tab.on .tab-count { background:var(--gl); color:var(--g); }
